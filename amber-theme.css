@@ -67,3 +67,5 @@ h1 { font-size: clamp(28px, 3.2vw, 34px); }
   .quick-link, .nav-group { display: none; }
   .main-content { padding: 24px 17px 42px; }
 }
+
+.quick-link { display: flex; align-items: center; width: 100%; border: 1px solid transparent; background: transparent; text-align: left; }
