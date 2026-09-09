@@ -69,26 +69,26 @@ h1 { font-size: clamp(28px, 3.2vw, 34px); }
 }
 
 /* Operational product density: flat panels, concise controls and data-led rows. */
-:root { --radius: 7px; --shadow: none; }
-body { font-family: "Segoe UI", Arial, sans-serif; background: #f7f7f9; }
+:root { --radius: 2px; --shadow: none; }
+body { font-family: Arial, "Helvetica Neue", sans-serif; background: #f7f7f9; }
 .global-bar { height: 66px; background: #fff; }
 .main-content { background: #f9f9fb; }
 .topbar { align-items: center; padding-bottom: 18px; border-bottom: 1px solid #ececf0; }
 .topbar-actions { gap: 8px; }
-h1 { font-size: 31px; font-weight: 700; letter-spacing: -.025em; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: 0; }
 h2 { font-size: 22px; }
 .subtitle { max-width: none; margin: 0 0 18px; font-size: 14px; }
-.button { border-radius: 5px; box-shadow: none; }
-.button-primary { padding: 10px 16px; background: #11196a; box-shadow: 0 2px 5px rgba(12, 18, 82, .2); }
+.button { border-radius: 2px; box-shadow: none; }
+.button-primary { padding: 10px 16px; background: #11196a; box-shadow: none; }
 .button-muted { background: #fff; }
 .stat-grid { gap: 16px; margin-bottom: 22px; }
-.stat-card, .surface, .system-card, .ticket-row, .month-card, .email-card { border-radius: 7px; box-shadow: none; }
+.stat-card, .surface, .system-card, .ticket-row, .month-card, .email-card { border-radius: 2px; box-shadow: none; }
 .stat-card { min-height: 130px; padding: 21px 23px; border-color: #e4e4e9; }
 .stat-card strong { margin: 9px 0 5px; font-size: 28px; }
 .section-header { margin: 0 0 9px; padding-top: 6px; }
 .section-header h2 { font-size: 19px; }
 .text-link { padding: 6px 0; font-size: 12px; }
-.system-list, .ticket-list { gap: 0; overflow: hidden; border: 1px solid #e5e5ea; border-radius: 7px; background: #fff; }
+.system-list, .ticket-list { gap: 0; overflow: hidden; border: 1px solid #e5e5ea; border-radius: 2px; background: #fff; }
 .system-card, .ticket-row { min-height: 72px; padding: 14px 17px; border: 0; border-bottom: 1px solid #ededf1; border-radius: 0; background: #fff; }
 .system-card:last-child, .ticket-row:last-child { border-bottom: 0; }
 .system-card:hover, .ticket-row:hover { border-color: #ededf1; box-shadow: none; background: #f6f7fb; transform: none; }
@@ -101,21 +101,55 @@ h2 { font-size: 22px; }
 .surface-title { margin-bottom: 14px; }
 .details-grid { gap: 14px 20px; }
 .detail-label { font-size: 10px; }
-.monitor-alert { border-radius: 5px; }
-.document-link { border-radius: 4px; box-shadow: none; }
-.photo-placeholder { border-radius: 4px; }
-.filters { gap: 0; padding: 5px; border-radius: 6px; background: #ececf1; }
-.filter { border: 0; border-radius: 4px; padding: 8px 11px; background: transparent; }
-.filter.active { background: #fff; box-shadow: 0 1px 2px rgba(17, 19, 63, .08); }
+.monitor-alert { border-radius: 2px; }
+.document-link { border-radius: 2px; box-shadow: none; }
+.photo-placeholder { border-radius: 2px; }
+.filters { gap: 0; padding: 4px; border-radius: 2px; background: #ececf1; }
+.filter { border: 0; border-radius: 2px; padding: 8px 11px; background: transparent; }
+.filter.active { background: #fff; box-shadow: none; }
 .workroom-grid { gap: 14px; }
-.email-address { border-radius: 4px; }
-.upload-area, .message-preview { border-radius: 5px; }
+.email-address { border-radius: 2px; }
+.upload-area, .message-preview { border-radius: 2px; }
 .calendar-grid { gap: 14px; }
 .month-card { min-height: 170px; padding: 16px; }
 .month-card.active { border-width: 1px; box-shadow: none; }
-.maintenance-item { border-radius: 4px; }
+.maintenance-item { border-radius: 2px; }
 .email-package { gap: 14px; }
 .email-card { padding: 18px; }
-.rule { border-radius: 6px; }
-.modal { border-radius: 8px; }
-.icon-button { border-radius: 5px; }
+.rule { border-radius: 2px; }
+.modal { border-radius: 2px; }
+.icon-button { border-radius: 2px; }
+
+/* Flat O&M navigation hierarchy. */
+.nav-list { display: block; }
+.nav-group { display: block; }
+.nav-parent { display: flex; align-items: center; width: 100%; gap: 12px; padding: 11px 12px; border: 0; border-left: 3px solid #e8bb63; background: rgba(255,255,255,.08); color: #fff; font: 600 17px/1.2 Arial, "Helvetica Neue", sans-serif; text-align: left; }
+.nav-parent > span { width: 17px; font-size: 18px; }
+.nav-parent small { margin-left: auto; color: #bfc2e8; font-size: 17px; transition: transform .16s ease; }
+.nav-submenu { display: grid; gap: 0; padding: 8px 0 0 31px; }
+.nav-submenu .nav-item { min-height: 38px; padding: 9px 12px; border: 0; border-left: 2px solid transparent; border-radius: 0; color: #c8cbe8; font-size: 15px; }
+.nav-submenu .nav-item.active { border: 0; border-left: 2px solid #e8bb63; background: transparent; color: #fff; }
+.nav-submenu .nav-item:hover { background: rgba(255,255,255,.055); color: #fff; }
+.om-nav.collapsed .nav-submenu { display: none; }
+.om-nav.collapsed .nav-parent small { transform: rotate(-90deg); }
+
+.report-surface { margin-top: 14px; border: 1px solid #e4e4e9; background: #fff; }
+.report-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 18px; border-bottom: 1px solid #ededf1; }
+.report-header h2 { margin: 0; font-size: 17px; }
+.report-header span { color: var(--muted); font-size: 12px; }
+.report-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.report-metrics > div { padding: 18px; border-right: 1px solid #ededf1; }
+.report-metrics > div:last-child { border-right: 0; }
+.report-metrics span, .report-list span { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.report-metrics strong { display: block; margin-top: 8px; color: var(--ink); font-size: 24px; font-weight: 600; }
+.report-list > div { padding: 14px 18px; border-bottom: 1px solid #ededf1; }
+.report-list > div:last-child { border-bottom: 0; }
+.report-list strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .nav-list, .nav-group { display: block; }
+  .nav-submenu { grid-template-columns: 1fr 1fr; padding-left: 0; }
+  .report-metrics { grid-template-columns: 1fr 1fr; }
+  .report-metrics > div:nth-child(2) { border-right: 0; }
+  .report-metrics > div:nth-child(-n+2) { border-bottom: 1px solid #ededf1; }
+}
