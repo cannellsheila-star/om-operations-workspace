@@ -90,7 +90,7 @@ function pageHeader(nextTitle, nextEyebrow, actionLabel = "") {
 
 function renderSystems() {
   state.view = "systems";
-  pageHeader("Systems overview", "PORTFOLIO COMMAND CENTRE", "Add system");
+  pageHeader("Monitoring", "O&M / MONITORING", "Add system");
   const operational = systems.filter((system) => system.status === "Operational").length;
   const attention = systems.filter((system) => system.status === "Attention required").length;
   const nonOperational = systems.filter((system) => system.status === "Non-operational").length;
@@ -162,7 +162,7 @@ function detail(label, value) { return `<span><span class="detail-label">${label
 
 function renderTickets() {
   state.view = "tickets";
-  pageHeader("One tickets area", "ALL ACTIONS IN ONE PLACE", "New ticket");
+  pageHeader("Tickets", "O&M / OPEN WORK", "New ticket");
   const filters = ["All open", "Monitoring alert", "PM visit", "On-site inspection", "Asset review", "Completed"];
   const visible = tickets.filter((ticket) => {
     if (state.ticketFilter === "All open") return ticket.status !== "Completed";
@@ -234,7 +234,7 @@ function renderTicketWorkroom(id) {
 
 function renderMaintenance() {
   state.view = "maintenance";
-  pageHeader("Maintenance planner", "SIX-MONTH PM CYCLE", "Schedule PM");
+  pageHeader("Maintenance", "O&M / SIX-MONTH PM CYCLE", "Schedule PM");
   const months = ["September 2026", "October 2026", "November 2026"];
   const selected = getMaintenance(state.selectedMaintenance);
   const selectedSystem = getSystem(selected.system);
@@ -250,18 +250,6 @@ function renderMaintenance() {
     </div>
     <section class="surface" style="margin-top:18px;"><div class="surface-title"><h3>Attachments selected from the system document library</h3><button class="button button-primary" data-action="prepare-pm-email">Prepare email package</button></div><div class="attachment-row">${selectedSystem.documents.map((document) => `<span class="tag tag-blue">${document}</span>`).join("")}${openTicketsForSystem(selected.system).filter((ticket) => ticket.pm).map((ticket) => `<span class="tag tag-amber">${ticket.id} · ticket record</span>`).join("")}</div><p class="muted" style="margin:16px 0 0;">Once the visit is complete, save the exact completion date. The monthly calendar then turns green.</p></section>
   `;
-}
-
-function renderAutomation() {
-  state.view = "automation";
-  pageHeader("Automation rules", "WORKFLOW REQUIREMENTS");
-  const rules = [
-    ["Quote approval", "Ticket status changes to Quote Approval", "Prepare email to the selected approver with the quote and ticket documents", "Approval response returns to the ticket"],
-    ["Include next PM", "Ticket PM checkbox is selected", "Add the ticket to the next relevant PM package with linked documents", "Corrective or restorative work appears in scope"],
-    ["PM scheduling", "System becomes due in its six-month cycle", "Prepare date request to off-taker and work package for O&M contractor", "Email history stays with the maintenance event"],
-    ["PM complete", "Actual completion date is saved", "Notify off-taker and write completion into system PM history", "Monthly view turns completed"],
-  ];
-  appView.innerHTML = `<p class="subtitle">These are the product rules for the developer build. The visible controls in Systems, Tickets and Maintenance map directly to each rule.</p><div class="rule-list">${rules.map(([event, trigger, action, outcome]) => `<article class="rule"><div><strong>${event}</strong><span>Workflow event</span></div><div><strong>Trigger</strong><span>${trigger}</span></div><div><strong>System action</strong><span>${action}</span></div><div><strong>Record kept</strong><span>${outcome}</span></div></article>`).join("")}</div>`;
 }
 
 function openModal(kind, context = {}) {
@@ -298,7 +286,7 @@ function onAction(action, id) {
 
 document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-nav]");
-  if (nav) { const target = nav.dataset.nav; if (target === "systems") renderSystems(); if (target === "tickets") renderTickets(); if (target === "maintenance") renderMaintenance(); if (target === "automation") renderAutomation(); return; }
+  if (nav) { const target = nav.dataset.nav; if (target === "systems") renderSystems(); if (target === "tickets") renderTickets(); if (target === "maintenance") renderMaintenance(); return; }
   const action = event.target.closest("[data-action]");
   if (action) onAction(action.dataset.action, action.dataset.id);
   const filter = event.target.closest("[data-filter]");
