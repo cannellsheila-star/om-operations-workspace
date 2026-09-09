@@ -22,22 +22,17 @@
         </a>
 
         <nav class="nav-list">
-          <button class="quick-link" type="button"><span>☑</span> My Tasks</button>
-          <div class="nav-group">
-            <p>PORTFOLIO</p>
-            <button class="nav-item active" data-nav="systems"><span>▦</span> Dashboard</button>
-          </div>
-          <div class="nav-group">
-            <p>OPERATIONS</p>
-            <button class="nav-item" data-nav="tickets"><span>⌁</span> Tickets</button>
-            <button class="nav-item" data-nav="maintenance"><span>▣</span> Maintenance</button>
+          <div class="nav-group om-nav" id="om-nav">
+            <button class="nav-parent" type="button" data-action="toggle-om-navigation" aria-controls="om-submenu" aria-expanded="true"><span>⌁</span> O&amp;M <small>⌄</small></button>
+            <div class="nav-submenu" id="om-submenu">
+              <button class="nav-item active" data-nav="systems">Monitoring</button>
+              <button class="nav-item" data-nav="tickets">Tickets</button>
+              <button class="nav-item" data-nav="maintenance">Maintenance</button>
+              <button class="nav-item" type="button" data-action="show-reports">Reports</button>
+            </div>
           </div>
         </nav>
 
-        <div class="sidebar-note">
-          <span class="eyebrow">LIVE O&M VIEW</span>
-          <p>One portfolio record connects systems, work, maintenance, documents and email history.</p>
-        </div>
       </aside>
 
       <div class="workspace">
@@ -82,5 +77,46 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <script src="app.js"></script>
+    <script>
+      (() => {
+        const navigation = document.querySelector("#om-nav");
+        const reportsButton = document.querySelector("[data-action='show-reports']");
+
+        document.addEventListener("click", (event) => {
+          const toggle = event.target.closest("[data-action='toggle-om-navigation']");
+          if (toggle) {
+            const collapsed = navigation.classList.toggle("collapsed");
+            toggle.setAttribute("aria-expanded", String(!collapsed));
+          }
+          if (event.target.closest("[data-action='show-reports']")) {
+            document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
+            reportsButton.classList.add("active");
+            document.querySelector("#page-title").textContent = "Reports";
+            document.querySelector("#page-eyebrow").textContent = "O&M / REPORTING";
+            document.querySelector("#primary-action").hidden = true;
+            document.querySelector("#back-button").hidden = true;
+            document.querySelector("#app-view").innerHTML = `
+              <p class="subtitle">Portfolio reporting is prepared from live systems, ticket status and completed maintenance records.</p>
+              <section class="report-surface">
+                <div class="report-header"><h2>Portfolio snapshot</h2><span>September 2026</span></div>
+                <div class="report-metrics">
+                  <div><span>Operational systems</span><strong>2 / 4</strong></div>
+                  <div><span>Open tickets</span><strong>4</strong></div>
+                  <div><span>PM visits due</span><strong>2</strong></div>
+                  <div><span>Quote approvals</span><strong>1</strong></div>
+                </div>
+              </section>
+              <section class="report-surface">
+                <div class="report-header"><h2>Report outputs</h2><span>Generated from the O&amp;M record</span></div>
+                <div class="report-list">
+                  <div><strong>System performance summary</strong><span>Operating state, monitoring updates and current exceptions</span></div>
+                  <div><strong>Open work register</strong><span>Tickets, quotes, corrective work and responsible contractor</span></div>
+                  <div><strong>Maintenance completion report</strong><span>Six-month schedule, exact completion dates and attached evidence</span></div>
+                </div>
+              </section>`;
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
