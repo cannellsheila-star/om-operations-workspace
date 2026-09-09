@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Blue Energy Africa operations and maintenance workspace." />
+    <title>Blue Energy Africa | O&M Workspace</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#systems" data-nav="systems" aria-label="Blue Energy Africa O&M Workspace">
+          <span class="brand-mark">B</span>
+          <span><strong>Blue Energy</strong><small>O&amp;M WORKSPACE</small></span>
+        </a>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-nav="systems"><span>◈</span> Systems</button>
+          <button class="nav-item" data-nav="tickets"><span>◉</span> Tickets</button>
+          <button class="nav-item" data-nav="maintenance"><span>◷</span> Maintenance</button>
+          <button class="nav-item" data-nav="automation"><span>↗</span> Automation</button>
+        </nav>
+
+        <div class="sidebar-note">
+          <span class="eyebrow">LIVE O&amp;M VIEW</span>
+          <p>One portfolio record connects systems, work, maintenance, documents and email history.</p>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="page-eyebrow">PORTFOLIO COMMAND CENTRE</p>
+            <h1 id="page-title">Systems overview</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="button button-muted" id="back-button" hidden>← Back</button>
+            <button class="button button-primary" id="primary-action">Add system</button>
+          </div>
+        </header>
+
+        <section id="app-view" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <div class="modal-layer" id="modal-layer" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">O&amp;M WORKSPACE</p>
+            <h2 id="modal-title">New ticket</h2>
+          </div>
+          <button class="icon-button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <div id="modal-content"></div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>
