@@ -17,7 +17,7 @@
     document.querySelector("#modal-layer").hidden = true;
     modal.innerHTML = "";
     try {
-      const response = await fetch("/api/automation", {
+      const response = await fetch("/api/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ticketId, to, cc, subject, text }),
