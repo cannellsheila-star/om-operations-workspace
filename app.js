@@ -1,4 +1,19 @@
-const systems = [
+const workspaceStorageKey = "om-workspace-records-v1";
+
+function loadWorkspaceCollection(collection, fallback) {
+  try {
+    const savedWorkspace = JSON.parse(localStorage.getItem(workspaceStorageKey) || "{}");
+    return Array.isArray(savedWorkspace[collection]) ? savedWorkspace[collection] : structuredClone(fallback);
+  } catch {
+    return structuredClone(fallback);
+  }
+}
+
+function saveWorkspace() {
+  localStorage.setItem(workspaceStorageKey, JSON.stringify({ systems, tickets, maintenance }));
+}
+
+const systemSeed = [
   {
     id: "SYS-001", name: "Lakeview Hybrid", kwp: 800, kwh: 1200, epc: "SunBuild", cod: "14 May 2023",
     contractor: "SolarCare", offtaker: "Lakeview Properties", contact: "operations@solarcare.example",
@@ -34,7 +49,7 @@ const systems = [
   },
 ];
 
-const tickets = [
+const ticketSeed = [
   { id: "TKT-2026-0042", type: "Operational issue", system: "SYS-003", source: "Monitoring alert", issue: "Inverter communication loss", concern: "Critical", found: "18 Aug 2026", opened: "18 Aug 2026", status: "Quote Approval", pm: true, approver: "asset.manager@blueenergy.example", owner: "SolarCare", work: ["Fault finding completed", "Await quote approval", "Install replacement module and verify SCADA data"], files: ["SCADA fault report.pdf", "Supplier quotation.pdf"] },
   { id: "TKT-2026-0041", type: "Maintenance finding", system: "SYS-001", source: "PM visit", issue: "Module clamp replacement", concern: "Medium", found: "20 Aug 2026", opened: "20 Aug 2026", status: "Pending Quote", pm: true, approver: "asset.manager@blueenergy.example", owner: "SolarCare", work: ["Loose clamp logged during PM", "Receive contractor quote", "Approve repair and add to PM pack"], files: ["PM inspection report.pdf"] },
   { id: "TKT-2026-0040", type: "Restorative work", system: "SYS-001", source: "Asset review", issue: "Replace degraded battery isolators", concern: "Planned", found: "19 Aug 2026", opened: "19 Aug 2026", status: "Open", pm: false, approver: "operations.lead@blueenergy.example", owner: "SolarCare", work: ["Scope restorative replacement", "Agree site date", "Close after installation and testing"], files: ["Asset condition review.pdf"] },
@@ -42,13 +57,16 @@ const tickets = [
   { id: "TKT-2026-0035", type: "Maintenance finding", system: "SYS-004", source: "PM visit", issue: "Refresh site safety signage", concern: "Low", found: "12 Jul 2026", opened: "12 Jul 2026", status: "Completed", pm: false, approver: "asset.manager@blueenergy.example", owner: "Blue Energy Africa", work: ["Signage replacement complete", "Close-out photographs saved", "Completion recorded 03 Aug 2026"], files: ["Close-out photos.zip"] },
 ];
 
-const maintenance = [
+const maintenanceSeed = [
   { id: "MNT-2026-09-01", system: "SYS-001", month: "September 2026", status: "Dates requested", completion: "", linked: 1 },
   { id: "MNT-2026-09-03", system: "SYS-003", month: "September 2026", status: "PM pack prepared", completion: "", linked: 1 },
   { id: "MNT-2026-10-02", system: "SYS-002", month: "October 2026", status: "Scheduled", completion: "", linked: 0 },
   { id: "MNT-2026-11-04", system: "SYS-004", month: "November 2026", status: "Completed", completion: "14 November 2026", linked: 0 },
 ];
 
+const systems = loadWorkspaceCollection("systems", systemSeed);
+const tickets = loadWorkspaceCollection("tickets", ticketSeed);
+const maintenance = loadWorkspaceCollection("maintenance", maintenanceSeed);
 const state = { view: "systems", selectedSystem: "SYS-001", selectedTicket: "TKT-2026-0040", selectedMaintenance: "MNT-2026-09-03", ticketFilter: "All open" };
 
 const appView = document.querySelector("#app-view");
@@ -101,7 +119,7 @@ function renderSystems() {
       <article class="stat-card"><span>Attention required</span><strong>${attention}</strong><span>Needs O&amp;M action</span></article>
       <article class="stat-card"><span>Non-operational</span><strong>${nonOperational}</strong><span>Critical recovery open</span></article>
     </div>
-    <div class="section-header"><h2>Managed assets</h2><button class="text-link" data-action="open-system" data-id="${systems[0].id}">Open system register →</button></div>
+    <div class="section-header"><h2>Managed assets</h2><button class="text-link" data-action="open-system-register">Open system register →</button></div>
     <div class="system-list">
       ${systems.map((system) => `
         <button class="system-card" data-action="open-system" data-id="${system.id}">
@@ -109,6 +127,25 @@ function renderSystems() {
           <span class="card-meta"><strong>${system.kwp.toLocaleString()} kWp · ${system.kwh.toLocaleString()} kWh</strong><br />O&amp;M: ${system.contractor}</span>
           ${tag(system.status)}
           <span class="card-meta"><strong>${openTicketsForSystem(system.id).length ? `Open tickets ${openTicketsForSystem(system.id).length}` : "Next PM"}</strong><br />${system.nextPm}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSystemRegister() {
+  state.view = "system-register";
+  pageHeader("System register", "SYSTEMS / ASSET REGISTER", "Add system");
+  appView.innerHTML = `
+    <p class="subtitle">The master record for every O&amp;M system. Update a system here before linking tickets, maintenance, documents or Outlook contacts.</p>
+    <div class="section-header"><h2>Registered systems</h2><span class="muted">${systems.length} system${systems.length === 1 ? "" : "s"}</span></div>
+    <div class="system-list">
+      ${systems.map((system) => `
+        <button class="system-card" data-action="open-system" data-id="${system.id}">
+          <span><span class="card-title">${system.name}</span><span class="card-meta">${system.id} · ${system.offtaker || "Offtaker not recorded"}</span></span>
+          <span class="card-meta"><strong>${Number(system.kwp || 0).toLocaleString()} kWp · ${Number(system.kwh || 0).toLocaleString()} kWh</strong><br />COD ${system.cod || "Not recorded"}</span>
+          ${tag(system.status || "Attention required")}
+          <span class="card-meta"><strong>${system.contractor || "O&M not recorded"}</strong><br />EPC: ${system.epc || "Not recorded"}</span>
         </button>
       `).join("")}
     </div>
@@ -124,25 +161,25 @@ function renderSystemRecord(id) {
   appView.innerHTML = `
     <div class="record-head">
       <div><p class="eyebrow">${system.id}</p><h2>${system.name}</h2><p class="muted">${system.kwp.toLocaleString()} kWp · ${system.kwh.toLocaleString()} kWh · COD ${system.cod}</p></div>
-      <div>${tag(system.status)} <button class="button button-muted" data-action="folder">Open share folder ↗</button></div>
+      <div>${tag(system.status)} <button class="button button-muted" data-action="edit-system" data-id="${system.id}">Edit system</button> <button class="button button-muted" data-action="monitoring" data-id="${system.id}">Open monitoring ↗</button> <button class="button button-muted" data-action="folder" data-id="${system.id}">Open share folder ↗</button></div>
     </div>
     <div class="record-grid">
       <div>
         <section class="surface">
           <div class="surface-title"><h3>Asset profile</h3><span class="muted">Primary contacts and dates</span></div>
           <div class="details-grid">
-            ${detail("EPC installer", system.epc)}${detail("O&M contractor", system.contractor)}${detail("COD date", system.cod)}${detail("Offtaker", system.offtaker)}${detail("O&M contact", system.contact)}${detail("Next PM due", system.nextPm)}${detail("Last PM completion", system.lastPm)}${detail("Open tickets", String(related.length))}
+            ${detail("System ID", system.id)}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("O&M contact", system.contact || "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
           </div>
         </section>
         <section class="surface">
-          <div class="surface-title"><h3>Live monitoring</h3><span class="tag tag-blue">CONNECTED</span></div>
+          <div class="surface-title"><h3>Live monitoring</h3><span class="tag tag-blue">${system.monitoringUrl ? "LINKED" : "NOT LINKED"}</span></div>
           <div class="monitor-alert"><strong>●</strong><span>${system.alert}<br /><small>${system.monitoring}</small></span></div>
           <div class="timeline" style="margin-top:18px;">${system.updates.map((update, index) => `<div class="timeline-item"><span class="timeline-date">${index === 0 ? "LATEST" : "UPDATE"}</span><span class="timeline-copy">${update}</span></div>`).join("")}</div>
         </section>
       </div>
       <div>
         <section class="surface">
-          <div class="surface-title"><h3>Document library</h3><button class="text-link" data-action="folder">Add folder link</button></div>
+          <div class="surface-title"><h3>Document library</h3><button class="text-link" data-action="edit-system" data-id="${system.id}">Add folder link</button></div>
           <div class="document-list">${system.documents.map((document) => `<button class="document-link" data-action="document"><span>${document}</span><span>Open ↗</span></button>`).join("")}</div>
         </section>
         <section class="surface">
@@ -254,6 +291,12 @@ function renderMaintenance() {
 
 function openModal(kind, context = {}) {
   modalLayer.hidden = false;
+  if (kind === "system") {
+    const system = context.system || {};
+    const isNew = !system.id;
+    modalTitle.textContent = isNew ? "Add system" : `Edit ${system.name}`;
+    modalContent.innerHTML = `<form class="modal-body" id="system-form" data-system-id="${system.id || ""}"><div class="form-grid"><div class="field"><label>System ID</label><input name="id" required ${isNew ? "" : "readonly"} value="${system.id || ""}" placeholder="SYS-005" /></div><div class="field"><label>System name</label><input name="name" required value="${system.name || ""}" placeholder="Site or asset name" /></div><div class="field"><label>Capacity (kWp)</label><input name="kwp" type="number" min="0" required value="${system.kwp ?? ""}" /></div><div class="field"><label>Storage (kWh)</label><input name="kwh" type="number" min="0" required value="${system.kwh ?? ""}" /></div><div class="field"><label>Operating status</label><select name="status"><option ${system.status === "Operational" ? "selected" : ""}>Operational</option><option ${system.status === "Attention required" ? "selected" : ""}>Attention required</option><option ${system.status === "Non-operational" ? "selected" : ""}>Non-operational</option></select></div><div class="field"><label>COD date</label><input name="cod" value="${system.cod || ""}" placeholder="14 May 2023" /></div><div class="field"><label>EPC installer</label><input name="epc" value="${system.epc || ""}" /></div><div class="field"><label>O&amp;M contractor</label><input name="contractor" value="${system.contractor || ""}" /></div><div class="field"><label>O&amp;M email</label><input name="contact" type="email" value="${system.contact || ""}" placeholder="contractor@company.com" /></div><div class="field"><label>Offtaker</label><input name="offtaker" value="${system.offtaker || ""}" /></div><div class="field"><label>Next PM due</label><input name="nextPm" value="${system.nextPm || ""}" placeholder="September 2026" /></div><div class="field"><label>Last PM completion</label><input name="lastPm" value="${system.lastPm || ""}" placeholder="14 March 2026" /></div><div class="field full"><label>Share-folder link</label><input name="folder" value="${system.folder || ""}" placeholder="Paste SharePoint or OneDrive link" /></div><div class="field full"><label>Monitoring link or reference</label><input name="monitoringUrl" value="${system.monitoringUrl || ""}" placeholder="Paste monitoring portal link" /></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">${isNew ? "Add system" : "Save system"}</button></div></form>`;
+  }
   if (kind === "new-ticket") {
     modalTitle.textContent = "Create ticket";
     modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>Ticket type</label><select name="type"><option>Operational issue</option><option>Maintenance finding</option><option>Restorative work</option></select></div><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
@@ -272,15 +315,18 @@ function closeModal() { modalLayer.hidden = true; modalContent.innerHTML = ""; }
 
 function onAction(action, id) {
   if (action === "open-system") renderSystemRecord(id);
+  if (action === "open-system-register") renderSystemRegister();
+  if (action === "edit-system") openModal("system", { system: getSystem(id) });
   if (action === "open-ticket") renderTicketWorkroom(id);
   if (action === "select-maintenance") { state.selectedMaintenance = id; renderMaintenance(); }
-  if (action === "folder") showToast("Secure folder link is ready to connect.");
+  if (action === "folder") { const system = getSystem(id || state.selectedSystem); if (system.folder && /^https?:\/\//i.test(system.folder)) window.open(system.folder, "_blank", "noopener"); else showToast("Add the SharePoint or OneDrive folder link in the system record."); }
+  if (action === "monitoring") { const system = getSystem(id || state.selectedSystem); if (system.monitoringUrl && /^https?:\/\//i.test(system.monitoringUrl)) window.open(system.monitoringUrl, "_blank", "noopener"); else showToast("Add the monitoring portal link in the system record."); }
   if (action === "document") showToast("Document access will connect to the selected system folder.");
   if (action === "add-photo") openModal("files");
   if (action === "copy-email") { navigator.clipboard?.writeText(ticketEmail(state.selectedTicket)); showToast("Dedicated ticket email copied."); }
   if (action === "prepare-email") { const ticket = getTicket(state.selectedTicket); openModal("email", { title: "Prepare ticket update", to: ticket.owner === "Blue Energy Africa" ? "operations@blueenergyafrica.example" : getSystem(ticket.system).contact, subject: `${ticket.id} — ${ticket.issue}`, body: `Please see the current update for ${ticket.id}.\n\nNext action: ${ticket.work.at(-1)}` }); }
   if (action === "prepare-pm-email") { const item = getMaintenance(state.selectedMaintenance); const system = getSystem(item.system); openModal("email", { title: "Prepare PM email package", to: system.contact, subject: `${item.month} PM — ${system.name}`, body: `Please find the PM scope and linked corrective work for ${system.name}. System documents are attached from the selected document library.` }); }
-  if (action === "quote-approved") { const ticket = getTicket(state.selectedTicket); ticket.status = "Open"; renderTicketWorkroom(ticket.id); showToast("Approval recorded; ticket returned to the active work queue."); }
+  if (action === "quote-approved") { const ticket = getTicket(state.selectedTicket); ticket.status = "Open"; saveWorkspace(); renderTicketWorkroom(ticket.id); showToast("Approval recorded; ticket returned to the active work queue."); }
   if (action === "queue-email") { closeModal(); showToast("Email package queued for the connected sending service."); }
 }
 
@@ -296,27 +342,51 @@ document.addEventListener("click", (event) => {
 
 primaryAction.addEventListener("click", () => {
   if (state.view === "tickets") openModal("new-ticket");
-  if (state.view === "systems") showToast("System creation is ready for the connected database phase.");
+  if (state.view === "systems" || state.view === "system-register") openModal("system");
   if (state.view === "maintenance") showToast("New PM event is ready for scheduling.");
 });
-backButton.addEventListener("click", () => { if (state.view === "system-record") renderSystems(); if (state.view === "ticket-workroom") renderTickets(); });
+backButton.addEventListener("click", () => { if (state.view === "system-record") renderSystemRegister(); if (state.view === "ticket-workroom") renderTickets(); });
 modalLayer.addEventListener("click", (event) => { if (event.target === modalLayer) closeModal(); });
 document.addEventListener("change", (event) => {
   if (event.target.id === "file-input") {
     const ticket = getTicket(state.selectedTicket);
     [...event.target.files].forEach((file) => ticket.files.push(file.name));
+    saveWorkspace();
     renderTicketWorkroom(ticket.id);
     showToast("Files added to the ticket record.");
   }
   if (event.target.id === "modal-file-input") { showToast(`${event.target.files.length} file${event.target.files.length === 1 ? "" : "s"} selected for the record.`); }
-  if (event.target.id === "pm-toggle") { const ticket = getTicket(state.selectedTicket); ticket.pm = event.target.checked; showToast(ticket.pm ? "Ticket will be included in the next PM package." : "Ticket removed from the PM package."); }
+  if (event.target.id === "pm-toggle") { const ticket = getTicket(state.selectedTicket); ticket.pm = event.target.checked; saveWorkspace(); showToast(ticket.pm ? "Ticket will be included in the next PM package." : "Ticket removed from the PM package."); }
 });
 modalContent.addEventListener("submit", (event) => {
-  if (event.target.id !== "ticket-form") return;
   event.preventDefault();
   const form = new FormData(event.target);
+  if (event.target.id === "system-form") {
+    const editedId = event.target.dataset.systemId;
+    const nextSystem = {
+      id: String(form.get("id")).trim().toUpperCase(), name: String(form.get("name")).trim(), kwp: Number(form.get("kwp")), kwh: Number(form.get("kwh")),
+      status: form.get("status"), cod: String(form.get("cod")).trim(), epc: String(form.get("epc")).trim(), contractor: String(form.get("contractor")).trim(),
+      contact: String(form.get("contact")).trim(), offtaker: String(form.get("offtaker")).trim(), nextPm: String(form.get("nextPm")).trim(), lastPm: String(form.get("lastPm")).trim(),
+      folder: String(form.get("folder")).trim(), monitoringUrl: String(form.get("monitoringUrl")).trim(), monitoring: "Monitoring connection not yet configured", alert: "No monitoring exception recorded.", updates: ["System record updated today"], documents: []
+    };
+    if (editedId) {
+      const index = systems.findIndex((system) => system.id === editedId);
+      systems[index] = { ...systems[index], ...nextSystem, documents: systems[index].documents || [], updates: ["System record updated today", ...(systems[index].updates || [])] };
+    } else if (systems.some((system) => system.id === nextSystem.id)) {
+      showToast("That System ID already exists. Use a unique ID.");
+      return;
+    } else {
+      systems.push(nextSystem);
+    }
+    saveWorkspace();
+    closeModal();
+    renderSystemRecord(nextSystem.id);
+    showToast(editedId ? "System record updated." : "System added to the register.");
+    return;
+  }
+  if (event.target.id !== "ticket-form") return;
   const ticket = { id: `TKT-2026-${String(43 + tickets.length - 5).padStart(4, "0")}`, type: form.get("type"), system: form.get("system"), source: form.get("source"), issue: form.get("issue"), concern: form.get("concern"), found: "Today", opened: "Today", status: "Open", pm: false, approver: "asset.manager@blueenergy.example", owner: getSystem(form.get("system")).contractor, work: [form.get("work")], files: [] };
-  tickets.unshift(ticket); closeModal(); state.ticketFilter = "All open"; renderTicketWorkroom(ticket.id); showToast("New ticket created with a dedicated email address.");
+  tickets.unshift(ticket); saveWorkspace(); closeModal(); state.ticketFilter = "All open"; renderTicketWorkroom(ticket.id); showToast("New ticket created with a dedicated email address.");
 });
 
 renderSystems();
