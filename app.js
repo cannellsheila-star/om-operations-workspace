@@ -1,4 +1,4 @@
-const workspaceStorageKey = "om-workspace-records-v1";
+const workspaceStorageKey = "om-workspace-records-v3";
 
 function loadWorkspaceCollection(collection, fallback) {
   try {
@@ -13,61 +13,43 @@ function saveWorkspace() {
   localStorage.setItem(workspaceStorageKey, JSON.stringify({ systems, tickets, maintenance }));
 }
 
+const importedSystem = (details) => ({
+  status: "Status not confirmed", documents: [], folder: "", monitoringUrl: "",
+  monitoring: details.platform ? `${details.platform} · connection pending` : "Monitoring platform not recorded",
+  alert: "Operating status has not yet been confirmed in the asset register.", updates: ["Imported from asset register"],
+  contactName: "", contact: "", platform: "", systemCount: 1,
+  ppaRate: "", ppaAnnualIncrease: "", ppaIncreaseDate: "", ppaTenor: null,
+  eassRate: "", eassAnnualIncrease: "", eassIncreaseDate: "", eassTenor: null,
+  ...details,
+});
+
 const systemSeed = [
-  {
-    id: "SYS-001", name: "Lakeview Hybrid", kwp: 800, kwh: 1200, epc: "SunBuild", cod: "14 May 2023",
-    contractor: "SolarCare", offtaker: "Lakeview Properties", contact: "operations@solarcare.example",
-    status: "Attention required", nextPm: "September 2026", lastPm: "14 March 2026",
-    documents: ["SLD.pdf", "Asset Register.xlsx", "Module Layout.pdf"],
-    folder: "Secure system folder — connect URL", monitoring: "Inverter portal · last sync 09:20",
-    alert: "Inverter B output is below its expected range. An operational ticket is in progress.",
-    updates: ["Monitoring created TKT-2026-0042", "PM date request is due this month", "System documents last reviewed 18 Aug 2026"],
-  },
-  {
-    id: "SYS-002", name: "Mhlabeni Retail", kwp: 1200, kwh: 600, epc: "Renew Works", cod: "02 November 2022",
-    contractor: "EcoServe", offtaker: "Mhlabeni Retail", contact: "support@ecoserve.example",
-    status: "Operational", nextPm: "October 2026", lastPm: "16 April 2026",
-    documents: ["SLD.pdf", "Asset Register.xlsx", "Site photos"],
-    folder: "Secure system folder — connect URL", monitoring: "Monitoring dashboard · no current issue",
-    alert: "No active monitoring exception.", updates: ["DC string balance review is open", "Monitoring synchronised 09:10", "Site photos available in record"],
-  },
-  {
-    id: "SYS-003", name: "Northgate Logistics", kwp: 650, kwh: 900, epc: "SunBuild", cod: "18 March 2024",
-    contractor: "SolarCare", offtaker: "Northgate Logistics", contact: "operations@solarcare.example",
-    status: "Non-operational", nextPm: "September 2026", lastPm: "22 March 2026",
-    documents: ["SLD.pdf", "Asset Register.xlsx", "Inverter report.pdf"],
-    folder: "Secure system folder — connect URL", monitoring: "SCADA alert · communication issue open",
-    alert: "Communication loss requires quote approval before corrective work can start.", updates: ["Quote Approval requested for TKT-2026-0042", "SCADA stopped reporting at 08:14", "Corrective work flagged for next PM"],
-  },
-  {
-    id: "SYS-004", name: "Umzi Foods", kwp: 450, kwh: 400, epc: "SolarBuild Co.", cod: "11 August 2023",
-    contractor: "Bright O&M", offtaker: "Umzi Foods", contact: "service@brightom.example",
-    status: "Operational", nextPm: "November 2026", lastPm: "14 May 2026",
-    documents: ["SLD.pdf", "Module Layout.pdf", "PM history.pdf"],
-    folder: "Secure system folder — connect URL", monitoring: "Monitoring dashboard · last PM complete",
-    alert: "No active monitoring exception.", updates: ["Safety signage ticket completed", "PM completion saved 14 May 2026", "Close-out photographs attached"],
-  },
+  importedSystem({ id: "SYS-001", name: "Naboom Plastiek", kwp: 434.5, kwh: 858, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Naboom Plastiek", contactName: "Maritz", contact: "maritz@naboomplastic.co.za", platform: "Augos", cod: "30 June 2024", nextPm: "-", lastPm: "1 February 2025", ppaRate: "R 2.05/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 July 2027", ppaTenor: 10, eassRate: "R 149,767.38", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 July 2027", eassTenor: 10 }),
+  importedSystem({ id: "SYS-002", name: "Smuts Agri KBL", kwp: 217, kwh: 230, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Smuts Agri KBL", contactName: "Jaco du Plessis", contact: "finance@smutsbros.co.za", platform: "Augos", cod: "1 September 2024", systemCount: 2, nextPm: "24 February 2027", lastPm: "26 August 2026", ppaRate: "R 1.38/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 October 2026", ppaTenor: 20, eassRate: "R 179,415.54", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 October 2026", eassTenor: 10 }),
+  importedSystem({ id: "SYS-003", name: "Smuts Agri Olyvendal", kwp: 61, kwh: 60, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Smuts Agri Olyvendal", contactName: "Jaco du Plessis", contact: "finance@smutsbros.co.za", platform: "Augos", cod: "1 September 2024", nextPm: "24 February 2027", lastPm: "26 August 2026", ppaRate: "R 1.44/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 October 2026", ppaTenor: 20, eassRate: "R 10,951.50", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 October 2026", eassTenor: 10 }),
+  importedSystem({ id: "SYS-004", name: "Namakwari Lodge", kwp: 232, kwh: 450, epc: "MiConsult", contractor: "MiConsult", offtaker: "Namakwari Lodge", contactName: "Zelna Van Den Heever", contact: "zelna@namakwari.co.za", platform: "Sunsynk/Augos", cod: "28 February 2025", nextPm: "26 January 2027", lastPm: "26 July 2026", ppaRate: "R 1.50/kWh", ppaAnnualIncrease: "CPI + 3.5%", ppaIncreaseDate: "1 March 2027", ppaTenor: 20, eassRate: "R 68,000.00", eassAnnualIncrease: "CPI + 3.5%", eassIncreaseDate: "1 March 2027", eassTenor: 20 }),
+  importedSystem({ id: "SYS-005", name: "Penflex", kwp: 1300, kwh: 2000, epc: "Blue EPcM", contractor: "Blue EPcM", offtaker: "Penflex", contactName: "Sean Stuttaford", contact: "sean@penflex.co.za", platform: "FusionSolar/Augos", cod: "28 February 2025", nextPm: "2 March 2027", lastPm: "1 September 2026", ppaRate: "R 1.28/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 March 2027", ppaTenor: 20, eassRate: "R 300,861.44", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 July 2027", eassTenor: 10 }),
+  importedSystem({ id: "SYS-006", name: "Alley Roads Meyerton Mall", kwp: 2230, kwh: 4000, epc: "Blue EPcM", contractor: "Blue EPcM", offtaker: "Alley Roads Meyerton Mall", contact: "ivan@alleyroads.co.za, busisiwe@alleyroads.co.za, craig@alleyroads.co.za", platform: "FusionSolar/Augos", cod: "28 February 2025", nextPm: "2 March 2027", lastPm: "1 September 2026", ppaRate: "R 1.15/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 March 2027", ppaTenor: 20, eassRate: "R 1,144,800.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 June 2027", eassTenor: 15 }),
+  importedSystem({ id: "SYS-007", name: "AR Residential", kwp: null, kwh: null, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "AR Residential", cod: "31 July 2025", systemCount: 17, nextPm: "-", lastPm: "-", eassRate: "R 333,229.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 August 2026", eassTenor: 15 }),
+  importedSystem({ id: "SYS-008", name: "Borbet SA", kwp: 2090, kwh: 4000, epc: "Blue EPcM", contractor: "Blue EPcM", offtaker: "Borbet SA", contactName: "Lauren & Derrick", contact: "la@borbetsa.net and dvk@borbetsa.net", platform: "FusionSolar/Augos", cod: "16 September 2025", nextPm: "2 March 2027", lastPm: "1 September 2026", ppaRate: "R 1.10/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 September 2026", ppaTenor: 20, eassRate: "R 530,182.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 November 2026", eassTenor: 10 }),
+  importedSystem({ id: "SYS-009", name: "Vientiane", kwp: 248.64, kwh: 0, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Vientiane", contact: "saliaoning@hotmail.com and 1813707047@qq.com", platform: "Augos", cod: "30 September 2025", nextPm: "30 January 2026", lastPm: "1 August 2025", ppaRate: "R 1.42/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 October 2026", ppaTenor: 20 }),
+  importedSystem({ id: "SYS-010", name: "Olijvenkraal Olive & Wine Farm", kwp: 75, kwh: 345, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Olijvenkraal Olive & Wine Farm", contactName: "Bruce & Debbie", contact: "bruce@cityventurecapital.com and debbiep@citylogistics.co.za", platform: "Sigen/Augos", cod: "31 October 2025", systemCount: 3, nextPm: "30 January 2026", lastPm: "1 August 2025", eassRate: "R 37,909.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 November 2026", eassTenor: 15 }),
+  importedSystem({ id: "SYS-011", name: "Sleepover - Lanseria", kwp: 55, kwh: 123, epc: "Coalition Africa", contractor: "Coalition Africa", offtaker: "Sleepover - Lanseria", contactName: "Sheldon Clements", contact: "sheldon.clements@sleepover.travel and theunis.bothma@sleepover.travel", platform: "Deye Cloud/Augos", cod: "28 February 2026", nextPm: "30 December 2026", lastPm: "1 July 2026", eassRate: "R 34,271.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 March 2027", eassTenor: 10 }),
+  importedSystem({ id: "SYS-012", name: "Sleepover - 3 Gates", kwp: 350, kwh: 737, epc: "Coalition Africa", contractor: "Coalition Africa", offtaker: "Sleepover - 3 Gates", contactName: "Sheldon Clements", contact: "sheldon.clements@sleepover.travel and theunis.bothma@sleepover.travel", platform: "Deye Cloud/Augos", cod: "28 February 2026", systemCount: 3, nextPm: "30 December 2026", lastPm: "1 July 2026", eassRate: "R 197,712.00", eassAnnualIncrease: "CPI + 1.5%", eassIncreaseDate: "1 March 2027", eassTenor: 10 }),
+  importedSystem({ id: "SYS-013", name: "Gosforth Park - City & Mr. P", kwp: 453.22, kwh: 651.24, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Gosforth Park - City & Mr. P", contactName: "Marzena Straub", contact: "marzenas@cipf.co.za", platform: "Sigen", cod: "28 February 2026", systemCount: 2, nextPm: "2 March 2027", lastPm: "1 September 2026", ppaRate: "R 2.05/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 March 2027", ppaTenor: 20 }),
+  importedSystem({ id: "SYS-014", name: "Gosforth Park - Gigabrain", kwp: 158, kwh: 253.25, epc: "Sustain EPC", contractor: "Sustain EPC", offtaker: "Gosforth Park - Gigabrain", contactName: "Noah Kirby", contact: "noah@gigabrain.africa and david", platform: "Sigen", cod: "28 February 2026", nextPm: "2 March 2027", lastPm: "1 September 2026", ppaRate: "R 2.45/kWh", ppaAnnualIncrease: "CPI + 1.5%", ppaIncreaseDate: "1 March 2027", ppaTenor: 20 }),
+  importedSystem({ id: "SYS-015", name: "Leeuwenkuil", kwp: null, kwh: null, epc: "Blue EPcM", contractor: "Blue EPcM", offtaker: "Leeuwenkuil", cod: "TBC", eassAnnualIncrease: "CPI + 1.5%" }),
 ];
 
-const ticketSeed = [
-  { id: "TKT-2026-0042", type: "Operational issue", system: "SYS-003", source: "Monitoring alert", issue: "Inverter communication loss", concern: "Critical", found: "18 Aug 2026", opened: "18 Aug 2026", status: "Quote Approval", pm: true, approver: "asset.manager@blueenergy.example", owner: "SolarCare", work: ["Fault finding completed", "Await quote approval", "Install replacement module and verify SCADA data"], files: ["SCADA fault report.pdf", "Supplier quotation.pdf"] },
-  { id: "TKT-2026-0041", type: "Maintenance finding", system: "SYS-001", source: "PM visit", issue: "Module clamp replacement", concern: "Medium", found: "20 Aug 2026", opened: "20 Aug 2026", status: "Pending Quote", pm: true, approver: "asset.manager@blueenergy.example", owner: "SolarCare", work: ["Loose clamp logged during PM", "Receive contractor quote", "Approve repair and add to PM pack"], files: ["PM inspection report.pdf"] },
-  { id: "TKT-2026-0040", type: "Restorative work", system: "SYS-001", source: "Asset review", issue: "Replace degraded battery isolators", concern: "Planned", found: "19 Aug 2026", opened: "19 Aug 2026", status: "Open", pm: false, approver: "operations.lead@blueenergy.example", owner: "SolarCare", work: ["Scope restorative replacement", "Agree site date", "Close after installation and testing"], files: ["Asset condition review.pdf"] },
-  { id: "TKT-2026-0038", type: "Operational issue", system: "SYS-002", source: "On-site inspection", issue: "DC string balance review", concern: "Medium", found: "30 Jul 2026", opened: "30 Jul 2026", status: "Open", pm: false, approver: "asset.manager@blueenergy.example", owner: "EcoServe", work: ["Review current readings", "Review inverter history", "Decide whether corrective work is required"], files: ["Site inspection photos.zip"] },
-  { id: "TKT-2026-0035", type: "Maintenance finding", system: "SYS-004", source: "PM visit", issue: "Refresh site safety signage", concern: "Low", found: "12 Jul 2026", opened: "12 Jul 2026", status: "Completed", pm: false, approver: "asset.manager@blueenergy.example", owner: "Blue Energy Africa", work: ["Signage replacement complete", "Close-out photographs saved", "Completion recorded 03 Aug 2026"], files: ["Close-out photos.zip"] },
-];
+const ticketSeed = [];
 
-const maintenanceSeed = [
-  { id: "MNT-2026-09-01", system: "SYS-001", month: "September 2026", status: "Dates requested", completion: "", linked: 1 },
-  { id: "MNT-2026-09-03", system: "SYS-003", month: "September 2026", status: "PM pack prepared", completion: "", linked: 1 },
-  { id: "MNT-2026-10-02", system: "SYS-002", month: "October 2026", status: "Scheduled", completion: "", linked: 0 },
-  { id: "MNT-2026-11-04", system: "SYS-004", month: "November 2026", status: "Completed", completion: "14 November 2026", linked: 0 },
-];
+const maintenanceSeed = [];
 
 const systems = loadWorkspaceCollection("systems", systemSeed);
 const tickets = loadWorkspaceCollection("tickets", ticketSeed);
 const maintenance = loadWorkspaceCollection("maintenance", maintenanceSeed);
-const state = { view: "systems", selectedSystem: "SYS-001", selectedTicket: "TKT-2026-0040", selectedMaintenance: "MNT-2026-09-03", ticketFilter: "All open" };
+const state = { view: "overview", selectedSystem: "SYS-001", selectedTicket: null, selectedMaintenance: null, ticketFilter: "All open", monitoringSystem: "" };
+const monitoringState = { status: "idle", data: null, message: "" };
 
 const appView = document.querySelector("#app-view");
 const title = document.querySelector("#page-title");
@@ -103,50 +85,100 @@ function pageHeader(nextTitle, nextEyebrow, actionLabel = "") {
   eyebrow.textContent = nextEyebrow;
   primaryAction.textContent = actionLabel;
   primaryAction.hidden = !actionLabel;
-  backButton.hidden = ["systems", "tickets", "maintenance", "automation"].includes(state.view);
+  backButton.hidden = ["overview", "monitoring", "tickets", "maintenance", "automation"].includes(state.view);
+  setNav();
 }
 
-function renderSystems() {
-  state.view = "systems";
-  pageHeader("Monitoring", "O&M / MONITORING", "Add system");
-  const operational = systems.filter((system) => system.status === "Operational").length;
-  const attention = systems.filter((system) => system.status === "Attention required").length;
-  const nonOperational = systems.filter((system) => system.status === "Non-operational").length;
+function formatMetric(value, unit = "") {
+  if (value === null || value === undefined || value === "") return "—";
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "—";
+  return `${numericValue.toLocaleString("en-ZA", { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`;
+}
+
+function findTelemetry(system) {
+  const telemetry = monitoringState.data?.systems || [];
+  return telemetry.find((item) => item.systemId === system.id || item.name === system.name) || null;
+}
+
+function monitoringConnectionCopy() {
+  if (monitoringState.status === "loading") return "Connecting to the monitoring API…";
+  if (monitoringState.data?.configured && (monitoringState.data.systems || []).length) return `Live feed updated ${new Date(monitoringState.data.fetchedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`;
+  if (monitoringState.message) return monitoringState.message;
+  return "Monitoring API is ready to connect. Add the approved endpoint and access token in Vercel to receive live system data.";
+}
+
+async function refreshMonitoring() {
+  monitoringState.status = "loading";
+  monitoringState.message = "";
+  if (state.view === "monitoring") renderMonitoring();
+  try {
+    const response = await fetch("/api/monitoring", { headers: { Accept: "application/json" } });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || "The monitoring feed could not be reached.");
+    monitoringState.data = payload;
+    monitoringState.message = payload.message || "";
+    monitoringState.status = "ready";
+  } catch (error) {
+    monitoringState.data = null;
+    monitoringState.message = error.message || "The monitoring feed could not be reached.";
+    monitoringState.status = "error";
+  }
+  if (state.view === "monitoring") renderMonitoring();
+}
+
+function renderMonitoring() {
+  state.view = "monitoring";
+  pageHeader("Monitoring", "O&M / MONITORING", "Refresh data");
+  const rows = systems.map((system) => ({ system, telemetry: findTelemetry(system) }));
+  const connectedRows = rows.filter(({ telemetry }) => telemetry);
+  const totalPower = connectedRows.reduce((total, { telemetry }) => total + (Number(telemetry.powerKw) || 0), 0);
+  const totalEnergy = connectedRows.reduce((total, { telemetry }) => total + (Number(telemetry.energyTodayKwh) || 0), 0);
+  const availability = connectedRows.map(({ telemetry }) => Number(telemetry.availability)).filter(Number.isFinite);
+  const averageAvailability = availability.length ? availability.reduce((total, value) => total + value, 0) / availability.length : null;
   appView.innerHTML = `
-    <p class="subtitle"><span class="status-dot"></span>Live status across ${systems.length} solar systems. Click a system to open its full operating record.</p>
-    <div class="stat-grid">
-      <article class="stat-card"><span>Operational</span><strong>${operational}</strong><span>Systems operating normally</span></article>
-      <article class="stat-card"><span>Attention required</span><strong>${attention}</strong><span>Needs O&amp;M action</span></article>
-      <article class="stat-card"><span>Non-operational</span><strong>${nonOperational}</strong><span>Critical recovery open</span></article>
+    <p class="subtitle"><span class="status-dot ${monitoringState.data?.configured ? "is-live" : ""}"></span>${monitoringConnectionCopy()}</p>
+    <div class="monitoring-stat-grid">
+      <article class="stat-card"><span>Current portfolio power</span><strong>${connectedRows.length ? formatMetric(totalPower, "kW") : "—"}</strong><span>${connectedRows.length ? `${connectedRows.length} systems reporting` : "Awaiting telemetry feed"}</span></article>
+      <article class="stat-card"><span>Generation today</span><strong>${connectedRows.length ? formatMetric(totalEnergy, "kWh") : "—"}</strong><span>From the latest available system readings</span></article>
+      <article class="stat-card"><span>Availability</span><strong>${averageAvailability === null ? "—" : formatMetric(averageAvailability, "%")}</strong><span>${availability.length ? "Average for reporting systems" : "Available once the feed is connected"}</span></article>
+      <article class="stat-card"><span>Systems tracked</span><strong>${systems.length}</strong><span>${connectedRows.length}/${systems.length} currently reporting</span></article>
     </div>
-    <div class="section-header"><h2>Managed assets</h2><button class="text-link" data-action="open-system-register">Open system register →</button></div>
-    <div class="system-list">
-      ${systems.map((system) => `
-        <button class="system-card" data-action="open-system" data-id="${system.id}">
-          <span><span class="card-title">${system.name}</span><span class="card-meta">${system.id} · EPC: ${system.epc} · COD ${system.cod}</span></span>
-          <span class="card-meta"><strong>${system.kwp.toLocaleString()} kWp · ${system.kwh.toLocaleString()} kWh</strong><br />O&amp;M: ${system.contractor}</span>
-          ${tag(system.status)}
-          <span class="card-meta"><strong>${openTicketsForSystem(system.id).length ? `Open tickets ${openTicketsForSystem(system.id).length}` : "Next PM"}</strong><br />${system.nextPm}</span>
-        </button>
+    <div class="section-header"><h2>System performance</h2><span class="muted">Click a system to open its full record</span></div>
+    <div class="monitoring-table" role="region" aria-label="System monitoring data" tabindex="0">
+      <div class="monitoring-head"><span>System</span><span>Operating state</span><span>Power now</span><span>Generation today</span><span>Availability</span><span>Last signal</span></div>
+      ${rows.map(({ system, telemetry }) => `
+        <div class="monitoring-row ${state.monitoringSystem === system.id ? "selected" : ""}">
+          <button class="asset-site" data-action="open-system" data-id="${system.id}"><strong>${system.name}</strong><span>${system.id} · ${formatMetric(system.kwp, "kWp")}</span></button>
+          <span>${tag(telemetry?.status || system.status)}</span>
+          <span class="monitoring-value">${formatMetric(telemetry?.powerKw, "kW")}</span>
+          <span class="monitoring-value">${formatMetric(telemetry?.energyTodayKwh, "kWh")}</span>
+          <span class="monitoring-value">${formatMetric(telemetry?.availability, "%")}</span>
+          <span class="card-meta">${telemetry?.lastSync || (monitoringState.status === "loading" ? "Checking…" : "Waiting for API")}</span>
+        </div>
       `).join("")}
     </div>
   `;
+  if (monitoringState.status === "idle") refreshMonitoring();
 }
 
 function renderSystemRegister() {
-  state.view = "system-register";
-  pageHeader("System register", "SYSTEMS / ASSET REGISTER", "Add system");
+  state.view = "overview";
+  pageHeader("O&M overview", "O&M / ASSET REGISTER", "Add system");
   appView.innerHTML = `
-    <p class="subtitle">The master record for every O&amp;M system. Update a system here before linking tickets, maintenance, documents or Outlook contacts.</p>
+    <p class="subtitle">The master asset list for every O&amp;M system. Click a system name to open its full record, contacts, documents, monitoring reference and linked work.</p>
     <div class="section-header"><h2>Registered systems</h2><span class="muted">${systems.length} system${systems.length === 1 ? "" : "s"}</span></div>
-    <div class="system-list">
+    <div class="asset-register" role="region" aria-label="O&M asset register" tabindex="0">
+      <div class="asset-register-head"><span>System</span><span>Size</span><span>O&amp;M contractor</span><span>EPC</span><span>COD date</span><span>OneDrive folder</span></div>
       ${systems.map((system) => `
-        <button class="system-card" data-action="open-system" data-id="${system.id}">
-          <span><span class="card-title">${system.name}</span><span class="card-meta">${system.id} · ${system.offtaker || "Offtaker not recorded"}</span></span>
-          <span class="card-meta"><strong>${Number(system.kwp || 0).toLocaleString()} kWp · ${Number(system.kwh || 0).toLocaleString()} kWh</strong><br />COD ${system.cod || "Not recorded"}</span>
-          ${tag(system.status || "Attention required")}
-          <span class="card-meta"><strong>${system.contractor || "O&M not recorded"}</strong><br />EPC: ${system.epc || "Not recorded"}</span>
-        </button>
+        <div class="asset-register-row">
+          <button class="asset-site" data-action="open-system" data-id="${system.id}"><strong>${system.name}</strong><span>${system.id} · ${system.offtaker || "Offtaker not recorded"}</span></button>
+          <span class="asset-size"><strong>${formatMetric(system.kwp, "kWp")}</strong><small>${formatMetric(system.kwh, "kWh")}</small></span>
+          <span>${system.contractor || "Not recorded"}</span>
+          <span>${system.epc || "Not recorded"}</span>
+          <span>${system.cod || "Not recorded"}</span>
+          <button class="asset-folder" data-action="folder" data-id="${system.id}">${/^https?:\/\//i.test(system.folder || "") ? "Open folder ↗" : "Add folder link"}</button>
+        </div>
       `).join("")}
     </div>
   `;
@@ -160,15 +192,15 @@ function renderSystemRecord(id) {
   const related = openTicketsForSystem(id);
   appView.innerHTML = `
     <div class="record-head">
-      <div><p class="eyebrow">${system.id}</p><h2>${system.name}</h2><p class="muted">${system.kwp.toLocaleString()} kWp · ${system.kwh.toLocaleString()} kWh · COD ${system.cod}</p></div>
-      <div>${tag(system.status)} <button class="button button-muted" data-action="edit-system" data-id="${system.id}">Edit system</button> <button class="button button-muted" data-action="monitoring" data-id="${system.id}">Open monitoring ↗</button> <button class="button button-muted" data-action="folder" data-id="${system.id}">Open share folder ↗</button></div>
+      <div><p class="eyebrow">${system.id}</p><h2>${system.name}</h2><p class="muted">${formatMetric(system.kwp, "kWp")} · ${formatMetric(system.kwh, "kWh")} · COD ${system.cod || "Not recorded"}</p></div>
+      <div>${tag(system.status)} <button class="button button-muted" data-action="edit-system" data-id="${system.id}">Edit system</button> <button class="button button-muted" data-action="view-monitoring" data-id="${system.id}">View monitoring</button> <button class="button button-muted" data-action="folder" data-id="${system.id}">Open OneDrive folder ↗</button></div>
     </div>
     <div class="record-grid">
       <div>
         <section class="surface">
           <div class="surface-title"><h3>Asset profile</h3><span class="muted">Primary contacts and dates</span></div>
           <div class="details-grid">
-            ${detail("System ID", system.id)}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("O&M contact", system.contact || "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
+            ${detail("System ID", system.id)}${detail("Number of systems", String(system.systemCount || 1))}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("Site contact", system.contactName || "Not recorded")}${detail("Contact email(s)", system.contact || "Not recorded")}${detail("Monitoring platform", system.platform || "Not recorded")}${detail("EaaS rate — battery cost", system.eassRate || "Not recorded")}${detail("EaaS annual increase", system.eassAnnualIncrease || "Not recorded")}${detail("EaaS next increase date", system.eassIncreaseDate || "Not recorded")}${detail("EaaS tenor", system.eassTenor ? `${system.eassTenor} years` : "Not recorded")}${detail("PPA rate — per kWh produced", system.ppaRate || "Not recorded")}${detail("PPA annual increase", system.ppaAnnualIncrease || "Not recorded")}${detail("PPA next increase date", system.ppaIncreaseDate || "Not recorded")}${detail("PPA tenor", system.ppaTenor ? `${system.ppaTenor} years` : "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
           </div>
         </section>
         <section class="surface">
@@ -272,6 +304,10 @@ function renderTicketWorkroom(id) {
 function renderMaintenance() {
   state.view = "maintenance";
   pageHeader("Maintenance", "O&M / SIX-MONTH PM CYCLE", "Schedule PM");
+  if (!maintenance.length) {
+    appView.innerHTML = `<p class="subtitle">No preventive-maintenance events have been scheduled yet. Each asset profile retains the imported last-completion and next-due dates.</p>`;
+    return;
+  }
   const months = ["September 2026", "October 2026", "November 2026"];
   const selected = getMaintenance(state.selectedMaintenance);
   const selectedSystem = getSystem(selected.system);
@@ -295,7 +331,37 @@ function openModal(kind, context = {}) {
     const system = context.system || {};
     const isNew = !system.id;
     modalTitle.textContent = isNew ? "Add system" : `Edit ${system.name}`;
-    modalContent.innerHTML = `<form class="modal-body" id="system-form" data-system-id="${system.id || ""}"><div class="form-grid"><div class="field"><label>System ID</label><input name="id" required ${isNew ? "" : "readonly"} value="${system.id || ""}" placeholder="SYS-005" /></div><div class="field"><label>System name</label><input name="name" required value="${system.name || ""}" placeholder="Site or asset name" /></div><div class="field"><label>Capacity (kWp)</label><input name="kwp" type="number" min="0" required value="${system.kwp ?? ""}" /></div><div class="field"><label>Storage (kWh)</label><input name="kwh" type="number" min="0" required value="${system.kwh ?? ""}" /></div><div class="field"><label>Operating status</label><select name="status"><option ${system.status === "Operational" ? "selected" : ""}>Operational</option><option ${system.status === "Attention required" ? "selected" : ""}>Attention required</option><option ${system.status === "Non-operational" ? "selected" : ""}>Non-operational</option></select></div><div class="field"><label>COD date</label><input name="cod" value="${system.cod || ""}" placeholder="14 May 2023" /></div><div class="field"><label>EPC installer</label><input name="epc" value="${system.epc || ""}" /></div><div class="field"><label>O&amp;M contractor</label><input name="contractor" value="${system.contractor || ""}" /></div><div class="field"><label>O&amp;M email</label><input name="contact" type="email" value="${system.contact || ""}" placeholder="contractor@company.com" /></div><div class="field"><label>Offtaker</label><input name="offtaker" value="${system.offtaker || ""}" /></div><div class="field"><label>Next PM due</label><input name="nextPm" value="${system.nextPm || ""}" placeholder="September 2026" /></div><div class="field"><label>Last PM completion</label><input name="lastPm" value="${system.lastPm || ""}" placeholder="14 March 2026" /></div><div class="field full"><label>Share-folder link</label><input name="folder" value="${system.folder || ""}" placeholder="Paste SharePoint or OneDrive link" /></div><div class="field full"><label>Monitoring link or reference</label><input name="monitoringUrl" value="${system.monitoringUrl || ""}" placeholder="Paste monitoring portal link" /></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">${isNew ? "Add system" : "Save system"}</button></div></form>`;
+    modalContent.innerHTML = `
+      <form class="modal-body" id="system-form" data-system-id="${system.id || ""}">
+        <div class="form-grid">
+          <div class="field"><label>System ID</label><input name="id" required ${isNew ? "" : "readonly"} value="${system.id || ""}" placeholder="SYS-016" /></div>
+          <div class="field"><label>System name</label><input name="name" required value="${system.name || ""}" placeholder="Site or portfolio name" /></div>
+          <div class="field"><label>Capacity (kWp)</label><input name="kwp" type="number" min="0" value="${system.kwp ?? ""}" /></div>
+          <div class="field"><label>Storage (kWh)</label><input name="kwh" type="number" min="0" value="${system.kwh ?? ""}" /></div>
+          <div class="field"><label>Number of systems</label><input name="systemCount" type="number" min="1" value="${system.systemCount ?? 1}" /></div>
+          <div class="field"><label>Operating status</label><select name="status"><option ${system.status === "Status not confirmed" ? "selected" : ""}>Status not confirmed</option><option ${system.status === "Operational" ? "selected" : ""}>Operational</option><option ${system.status === "Attention required" ? "selected" : ""}>Attention required</option><option ${system.status === "Non-operational" ? "selected" : ""}>Non-operational</option></select></div>
+          <div class="field"><label>COD date</label><input name="cod" value="${system.cod || ""}" placeholder="30 June 2024" /></div>
+          <div class="field"><label>Monitoring platform</label><input name="platform" value="${system.platform || ""}" placeholder="e.g. Augos" /></div>
+          <div class="field"><label>EPC installer</label><input name="epc" value="${system.epc || ""}" /></div>
+          <div class="field"><label>O&amp;M contractor</label><input name="contractor" value="${system.contractor || ""}" /></div>
+          <div class="field"><label>Site contact</label><input name="contactName" value="${system.contactName || ""}" /></div>
+          <div class="field"><label>Contact email(s)</label><input name="contact" value="${system.contact || ""}" placeholder="One or more email addresses" /></div>
+          <div class="field"><label>Offtaker</label><input name="offtaker" value="${system.offtaker || ""}" /></div>
+          <div class="field"><label>PPA rate — per kWh produced</label><input name="ppaRate" value="${system.ppaRate || ""}" placeholder="e.g. R 2.10/kWh" /></div>
+          <div class="field"><label>PPA annual increase</label><input name="ppaAnnualIncrease" value="${system.ppaAnnualIncrease || ""}" placeholder="e.g. CPI + 1.5%" /></div>
+          <div class="field"><label>PPA next increase date</label><input name="ppaIncreaseDate" value="${system.ppaIncreaseDate || ""}" placeholder="e.g. 01 January 2027" /></div>
+          <div class="field"><label>PPA tenor (years)</label><input name="ppaTenor" type="number" min="0" value="${system.ppaTenor ?? ""}" /></div>
+          <div class="field"><label>EaaS rate — battery cost</label><input name="eassRate" value="${system.eassRate || ""}" placeholder="e.g. R 15,000/month" /></div>
+          <div class="field"><label>EaaS annual increase</label><input name="eassAnnualIncrease" value="${system.eassAnnualIncrease || ""}" placeholder="e.g. CPI + 1.5%" /></div>
+          <div class="field"><label>EaaS next increase date</label><input name="eassIncreaseDate" value="${system.eassIncreaseDate || ""}" placeholder="e.g. 01 January 2027" /></div>
+          <div class="field"><label>EaaS tenor (years)</label><input name="eassTenor" type="number" min="0" value="${system.eassTenor ?? ""}" /></div>
+          <div class="field"><label>Next PM due</label><input name="nextPm" value="${system.nextPm || ""}" placeholder="Month and year" /></div>
+          <div class="field"><label>Last PM completion</label><input name="lastPm" value="${system.lastPm || ""}" placeholder="Date completed" /></div>
+          <div class="field full"><label>Share-folder link</label><input name="folder" value="${system.folder || ""}" placeholder="Paste SharePoint or OneDrive link" /></div>
+          <div class="field full"><label>Monitoring link or reference</label><input name="monitoringUrl" value="${system.monitoringUrl || ""}" placeholder="Paste monitoring portal link" /></div>
+        </div>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">${isNew ? "Add system" : "Save system"}</button></div>
+      </form>`;
   }
   if (kind === "new-ticket") {
     modalTitle.textContent = "Create ticket";
@@ -317,6 +383,8 @@ function onAction(action, id) {
   if (action === "open-system") renderSystemRecord(id);
   if (action === "open-system-register") renderSystemRegister();
   if (action === "edit-system") openModal("system", { system: getSystem(id) });
+  if (action === "view-monitoring") { state.monitoringSystem = id; renderMonitoring(); }
+  if (action === "refresh-monitoring") refreshMonitoring();
   if (action === "open-ticket") renderTicketWorkroom(id);
   if (action === "select-maintenance") { state.selectedMaintenance = id; renderMaintenance(); }
   if (action === "folder") { const system = getSystem(id || state.selectedSystem); if (system.folder && /^https?:\/\//i.test(system.folder)) window.open(system.folder, "_blank", "noopener"); else showToast("Add the SharePoint or OneDrive folder link in the system record."); }
@@ -332,7 +400,7 @@ function onAction(action, id) {
 
 document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-nav]");
-  if (nav) { const target = nav.dataset.nav; if (target === "systems") renderSystems(); if (target === "tickets") renderTickets(); if (target === "maintenance") renderMaintenance(); return; }
+  if (nav) { const target = nav.dataset.nav; if (target === "overview") renderSystemRegister(); if (target === "monitoring") renderMonitoring(); if (target === "tickets") renderTickets(); if (target === "maintenance") renderMaintenance(); return; }
   const action = event.target.closest("[data-action]");
   if (action) onAction(action.dataset.action, action.dataset.id);
   const filter = event.target.closest("[data-filter]");
@@ -342,7 +410,8 @@ document.addEventListener("click", (event) => {
 
 primaryAction.addEventListener("click", () => {
   if (state.view === "tickets") openModal("new-ticket");
-  if (state.view === "systems" || state.view === "system-register") openModal("system");
+  if (state.view === "overview") openModal("system");
+  if (state.view === "monitoring") refreshMonitoring();
   if (state.view === "maintenance") showToast("New PM event is ready for scheduling.");
 });
 backButton.addEventListener("click", () => { if (state.view === "system-record") renderSystemRegister(); if (state.view === "ticket-workroom") renderTickets(); });
@@ -363,11 +432,15 @@ modalContent.addEventListener("submit", (event) => {
   const form = new FormData(event.target);
   if (event.target.id === "system-form") {
     const editedId = event.target.dataset.systemId;
+    const optionalNumber = (value) => value === "" ? null : Number(value);
     const nextSystem = {
-      id: String(form.get("id")).trim().toUpperCase(), name: String(form.get("name")).trim(), kwp: Number(form.get("kwp")), kwh: Number(form.get("kwh")),
-      status: form.get("status"), cod: String(form.get("cod")).trim(), epc: String(form.get("epc")).trim(), contractor: String(form.get("contractor")).trim(),
-      contact: String(form.get("contact")).trim(), offtaker: String(form.get("offtaker")).trim(), nextPm: String(form.get("nextPm")).trim(), lastPm: String(form.get("lastPm")).trim(),
-      folder: String(form.get("folder")).trim(), monitoringUrl: String(form.get("monitoringUrl")).trim(), monitoring: "Monitoring connection not yet configured", alert: "No monitoring exception recorded.", updates: ["System record updated today"], documents: []
+      id: String(form.get("id")).trim().toUpperCase(), name: String(form.get("name")).trim(), kwp: optionalNumber(form.get("kwp")), kwh: optionalNumber(form.get("kwh")), systemCount: optionalNumber(form.get("systemCount")) || 1,
+      status: form.get("status"), cod: String(form.get("cod")).trim(), platform: String(form.get("platform")).trim(), epc: String(form.get("epc")).trim(), contractor: String(form.get("contractor")).trim(),
+      contactName: String(form.get("contactName")).trim(), contact: String(form.get("contact")).trim(), offtaker: String(form.get("offtaker")).trim(),
+      eassRate: String(form.get("eassRate")).trim(), eassAnnualIncrease: String(form.get("eassAnnualIncrease")).trim(), eassIncreaseDate: String(form.get("eassIncreaseDate")).trim(), eassTenor: optionalNumber(form.get("eassTenor")),
+      ppaRate: String(form.get("ppaRate")).trim(), ppaAnnualIncrease: String(form.get("ppaAnnualIncrease")).trim(), ppaIncreaseDate: String(form.get("ppaIncreaseDate")).trim(), ppaTenor: optionalNumber(form.get("ppaTenor")),
+      nextPm: String(form.get("nextPm")).trim(), lastPm: String(form.get("lastPm")).trim(), folder: String(form.get("folder")).trim(), monitoringUrl: String(form.get("monitoringUrl")).trim(),
+      monitoring: String(form.get("platform")).trim() ? `${String(form.get("platform")).trim()} · connection pending` : "Monitoring platform not recorded", alert: "No monitoring exception recorded.", updates: ["System record updated today"], documents: []
     };
     if (editedId) {
       const index = systems.findIndex((system) => system.id === editedId);
@@ -389,4 +462,4 @@ modalContent.addEventListener("submit", (event) => {
   tickets.unshift(ticket); saveWorkspace(); closeModal(); state.ticketFilter = "All open"; renderTicketWorkroom(ticket.id); showToast("New ticket created with a dedicated email address.");
 });
 
-renderSystems();
+renderSystemRegister();
