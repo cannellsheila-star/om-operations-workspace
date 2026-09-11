@@ -13,9 +13,8 @@
       <aside class="sidebar" aria-label="Main navigation">
         <nav class="nav-list">
           <div class="nav-group om-nav" id="om-nav">
-            <button class="nav-parent" type="button" data-action="toggle-om-navigation" aria-controls="om-submenu" aria-expanded="true"><span>⌁</span> O&amp;M <small>⌄</small></button>
+            <button class="nav-parent active" type="button" data-nav="overview"><span>⌁</span> O&amp;M</button>
             <div class="nav-submenu" id="om-submenu">
-              <button class="nav-item active" data-nav="overview">Overview</button>
               <button class="nav-item" data-nav="monitoring">Monitoring</button>
               <button class="nav-item" data-nav="tickets">Tickets</button>
               <button class="nav-item" data-nav="maintenance">Maintenance</button>
@@ -71,17 +70,11 @@
     <script src="automation-client.js"></script>
     <script>
       (() => {
-        const navigation = document.querySelector("#om-nav");
         const reportsButton = document.querySelector("[data-action='show-reports']");
 
         document.addEventListener("click", (event) => {
-          const toggle = event.target.closest("[data-action='toggle-om-navigation']");
-          if (toggle) {
-            const collapsed = navigation.classList.toggle("collapsed");
-            toggle.setAttribute("aria-expanded", String(!collapsed));
-          }
           if (event.target.closest("[data-action='show-reports']")) {
-            document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
+            document.querySelectorAll(".nav-item, .nav-parent").forEach((item) => item.classList.remove("active"));
             reportsButton.classList.add("active");
             document.querySelector("#page-title").textContent = "Reports";
             document.querySelector("#page-eyebrow").textContent = "O&M / REPORTING";
