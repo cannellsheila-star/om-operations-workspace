@@ -18,6 +18,7 @@ const importedSystem = (details) => ({
   monitoring: details.platform ? `${details.platform} · connection pending` : "Monitoring platform not recorded",
   alert: "Operating status has not yet been confirmed in the asset register.", updates: ["Imported from asset register"],
   contactName: "", contact: "", platform: "", systemCount: 1,
+  gridSupply: "Not confirmed", tariffName: "", utilityTariff: "", tariffEffectiveDate: "", tariffAnnualIncrease: "",
   ppaRate: "", ppaAnnualIncrease: "", ppaIncreaseDate: "", ppaTenor: null,
   eassRate: "", eassAnnualIncrease: "", eassIncreaseDate: "", eassTenor: null,
   ...details,
@@ -161,25 +162,32 @@ function renderMonitoring() {
     </div>
   `;
   if (monitoringState.status === "idle") refreshMonitoring();
-}
-
-function renderSystemRegister() {
+}function renderSystemRegister() {
   state.view = "overview";
-  pageHeader("O&M overview", "O&M / ASSET REGISTER", "Add system");
+  pageHeader("O&M", "O&M / ASSET REGISTER", "Add system");
+  const operationalCount = systems.filter((system) => system.status === "Operational").length;
+  const attentionCount = systems.filter((system) => system.status === "Attention required").length;
+  const nonOperationalCount = systems.filter((system) => system.status === "Non-operational").length;
+  const pendingStatusCount = systems.length - operationalCount - attentionCount - nonOperationalCount;
+  const hasVerifiedStatus = pendingStatusCount === 0;
   appView.innerHTML = `
-    <p class="subtitle">The master asset list for every O&amp;M system. Click a system name to open its full record, contacts, documents, monitoring reference and linked work.</p>
-    <div class="section-header"><h2>Registered systems</h2><span class="muted">${systems.length} system${systems.length === 1 ? "" : "s"}</span></div>
-    <div class="asset-register" role="region" aria-label="O&M asset register" tabindex="0">
-      <div class="asset-register-head"><span>System</span><span>Size</span><span>O&amp;M contractor</span><span>EPC</span><span>COD date</span><span>OneDrive folder</span></div>
+    <p class="subtitle"><span class="status-dot ${hasVerifiedStatus ? "is-live" : "status-pending"}"></span>${hasVerifiedStatus ? `Verified operating status across ${systems.length} solar systems.` : `${pendingStatusCount} of ${systems.length} systems require operating-status confirmation from Monitoring.`}</p>
+    <div class="stat-grid" aria-label="Portfolio operating status">
+      <article class="stat-card"><span>Operational</span><strong>${operationalCount}</strong><span>Confirmed operating normally</span></article>
+      <article class="stat-card"><span>Attention required</span><strong>${attentionCount}</strong><span>Confirmed O&amp;M actions needed</span></article>
+      <article class="stat-card"><span>Non-operational</span><strong>${nonOperationalCount}</strong><span>Confirmed recovery actions needed</span></article>
+    </div>
+    <div class="section-header"><h2>Managed assets</h2><span class="muted">${systems.length} system${systems.length === 1 ? "" : "s"}</span></div>
+    <div class="overview-system-list" role="region" aria-label="O&M managed assets" tabindex="0">
       ${systems.map((system) => `
-        <div class="asset-register-row">
-          <button class="asset-site" data-action="open-system" data-id="${system.id}"><strong>${system.name}</strong><span>${system.id} · ${system.offtaker || "Offtaker not recorded"}</span></button>
-          <span class="asset-size"><strong>${formatMetric(system.kwp, "kWp")}</strong><small>${formatMetric(system.kwh, "kWh")}</small></span>
-          <span>${system.contractor || "Not recorded"}</span>
-          <span>${system.epc || "Not recorded"}</span>
-          <span>${system.cod || "Not recorded"}</span>
-          <button class="asset-folder" data-action="folder" data-id="${system.id}">${/^https?:\/\//i.test(system.folder || "") ? "Open folder ↗" : "Add folder link"}</button>
-        </div>
+        <article class="overview-system-row">
+          <button class="overview-system-main" data-action="open-system" data-id="${system.id}" aria-label="Open system record for ${system.name}">
+            <span class="overview-system-identity"><span class="card-title">${system.name}</span><span class="card-meta">${system.id} · EPC: ${system.epc || "Not recorded"} · COD ${system.cod || "Not recorded"}</span></span>
+            <span class="overview-system-capacity"><strong>${formatMetric(system.kwp, "kWp")} · ${formatMetric(system.kwh, "kWh")}</strong><span class="card-meta">O&amp;M: ${system.contractor || "Not recorded"}</span></span>
+          </button>
+          <span class="overview-system-state">${tag(system.status)}</span>
+          <span class="overview-system-work"><span class="card-meta">Open tickets ${openTicketsForSystem(system.id).length}</span><span class="card-meta">${system.nextPm && system.nextPm !== "-" ? `Next PM ${system.nextPm}` : "PM date not set"}</span><button class="asset-folder" data-action="folder" data-id="${system.id}">${/^https?:\/\//i.test(system.folder || "") ? "Open OneDrive ↗" : "Add OneDrive link"}</button></span>
+        </article>
       `).join("")}
     </div>
   `;
@@ -203,6 +211,13 @@ function renderSystemRecord(id) {
           <div class="details-grid">
             ${detail("System ID", system.id)}${detail("Number of systems", String(system.systemCount || 1))}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("Site contact", system.contactName || "Not recorded")}${detail("Contact email(s)", system.contact || "Not recorded")}${detail("Monitoring platform", system.platform || "Not recorded")}${detail("EaaS rate — battery cost", system.eassRate || "Not recorded")}${detail("EaaS annual increase", system.eassAnnualIncrease || "Not recorded")}${detail("EaaS next increase date", system.eassIncreaseDate || "Not recorded")}${detail("EaaS tenor", system.eassTenor ? `${system.eassTenor} years` : "Not recorded")}${detail("PPA rate — per kWh produced", system.ppaRate || "Not recorded")}${detail("PPA annual increase", system.ppaAnnualIncrease || "Not recorded")}${detail("PPA next increase date", system.ppaIncreaseDate || "Not recorded")}${detail("PPA tenor", system.ppaTenor ? `${system.ppaTenor} years` : "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
           </div>
+        </section>
+        <section class="surface">
+          <div class="surface-title"><h3>Grid tariff &amp; savings basis</h3><span class="muted">Utility cost avoided by on-site generation</span></div>
+          <div class="details-grid">
+            ${detail("Supply authority", system.gridSupply || "Not confirmed")}${detail("Tariff name / code", system.tariffName || "Not recorded")}${detail("Grid tariff rate", system.utilityTariff || "Not recorded")}${detail("Tariff effective date", system.tariffEffectiveDate || "Not recorded")}${detail("Annual tariff increase", system.tariffAnnualIncrease || "Not recorded")}
+          </div>
+          <p class="muted" style="margin:16px 0 0;">Select Municipal or Eskom and record the current tariff before savings are calculated. Savings reports combine this tariff with verified monitoring generation and PPA/EaaS charges.</p>
         </section>
         <section class="surface">
           <div class="surface-title"><h3>Live monitoring</h3><span class="tag tag-blue">${system.monitoringUrl ? "LINKED" : "NOT LINKED"}</span></div>
@@ -348,6 +363,11 @@ function openModal(kind, context = {}) {
           <div class="field"><label>Site contact</label><input name="contactName" value="${system.contactName || ""}" /></div>
           <div class="field"><label>Contact email(s)</label><input name="contact" value="${system.contact || ""}" placeholder="One or more email addresses" /></div>
           <div class="field"><label>Offtaker</label><input name="offtaker" value="${system.offtaker || ""}" /></div>
+          <div class="field"><label>Supply authority</label><select name="gridSupply"><option ${(!system.gridSupply || system.gridSupply === "Not confirmed") ? "selected" : ""}>Not confirmed</option><option ${system.gridSupply === "Municipal" ? "selected" : ""}>Municipal</option><option ${system.gridSupply === "Eskom" ? "selected" : ""}>Eskom</option></select></div>
+          <div class="field"><label>Tariff name / code</label><input name="tariffName" value="${system.tariffName || ""}" placeholder="e.g. Megaflex / municipal tariff" /></div>
+          <div class="field"><label>Grid tariff rate</label><input name="utilityTariff" value="${system.utilityTariff || ""}" placeholder="e.g. R 3.15/kWh" /></div>
+          <div class="field"><label>Tariff effective date</label><input name="tariffEffectiveDate" value="${system.tariffEffectiveDate || ""}" placeholder="e.g. 01 July 2026" /></div>
+          <div class="field"><label>Annual tariff increase</label><input name="tariffAnnualIncrease" value="${system.tariffAnnualIncrease || ""}" placeholder="e.g. 12.5%" /></div>
           <div class="field"><label>PPA rate — per kWh produced</label><input name="ppaRate" value="${system.ppaRate || ""}" placeholder="e.g. R 2.10/kWh" /></div>
           <div class="field"><label>PPA annual increase</label><input name="ppaAnnualIncrease" value="${system.ppaAnnualIncrease || ""}" placeholder="e.g. CPI + 1.5%" /></div>
           <div class="field"><label>PPA next increase date</label><input name="ppaIncreaseDate" value="${system.ppaIncreaseDate || ""}" placeholder="e.g. 01 January 2027" /></div>
@@ -438,6 +458,7 @@ modalContent.addEventListener("submit", (event) => {
       id: String(form.get("id")).trim().toUpperCase(), name: String(form.get("name")).trim(), kwp: optionalNumber(form.get("kwp")), kwh: optionalNumber(form.get("kwh")), systemCount: optionalNumber(form.get("systemCount")) || 1,
       status: form.get("status"), cod: String(form.get("cod")).trim(), platform: String(form.get("platform")).trim(), epc: String(form.get("epc")).trim(), contractor: String(form.get("contractor")).trim(),
       contactName: String(form.get("contactName")).trim(), contact: String(form.get("contact")).trim(), offtaker: String(form.get("offtaker")).trim(),
+      gridSupply: String(form.get("gridSupply")).trim(), tariffName: String(form.get("tariffName")).trim(), utilityTariff: String(form.get("utilityTariff")).trim(), tariffEffectiveDate: String(form.get("tariffEffectiveDate")).trim(), tariffAnnualIncrease: String(form.get("tariffAnnualIncrease")).trim(),
       eassRate: String(form.get("eassRate")).trim(), eassAnnualIncrease: String(form.get("eassAnnualIncrease")).trim(), eassIncreaseDate: String(form.get("eassIncreaseDate")).trim(), eassTenor: optionalNumber(form.get("eassTenor")),
       ppaRate: String(form.get("ppaRate")).trim(), ppaAnnualIncrease: String(form.get("ppaAnnualIncrease")).trim(), ppaIncreaseDate: String(form.get("ppaIncreaseDate")).trim(), ppaTenor: optionalNumber(form.get("ppaTenor")),
       nextPm: String(form.get("nextPm")).trim(), lastPm: String(form.get("lastPm")).trim(), folder: String(form.get("folder")).trim(), monitoringUrl: String(form.get("monitoringUrl")).trim(),
