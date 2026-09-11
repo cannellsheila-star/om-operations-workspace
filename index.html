@@ -15,7 +15,8 @@
           <div class="nav-group om-nav" id="om-nav">
             <button class="nav-parent" type="button" data-action="toggle-om-navigation" aria-controls="om-submenu" aria-expanded="true"><span>⌁</span> O&amp;M <small>⌄</small></button>
             <div class="nav-submenu" id="om-submenu">
-              <button class="nav-item active" data-nav="systems">Monitoring</button>
+              <button class="nav-item active" data-nav="overview">Overview</button>
+              <button class="nav-item" data-nav="monitoring">Monitoring</button>
               <button class="nav-item" data-nav="tickets">Tickets</button>
               <button class="nav-item" data-nav="maintenance">Maintenance</button>
               <button class="nav-item" type="button" data-action="show-reports">Reports</button>
@@ -91,10 +92,10 @@
               <section class="report-surface">
                 <div class="report-header"><h2>Portfolio snapshot</h2><span>September 2026</span></div>
                 <div class="report-metrics">
-                  <div><span>Operational systems</span><strong>2 / 4</strong></div>
-                  <div><span>Open tickets</span><strong>4</strong></div>
-                  <div><span>PM visits due</span><strong>2</strong></div>
-                  <div><span>Quote approvals</span><strong>1</strong></div>
+                  <div><span>Operational systems</span><strong>${systems.filter((system) => system.status === "Operational").length} / ${systems.length}</strong></div>
+                  <div><span>Open tickets</span><strong>${tickets.filter((ticket) => ticket.status !== "Completed").length}</strong></div>
+                  <div><span>PM visits due</span><strong>${maintenance.filter((item) => item.status !== "Completed").length}</strong></div>
+                  <div><span>Quote approvals</span><strong>${tickets.filter((ticket) => ticket.status === "Quote Approval").length}</strong></div>
                 </div>
               </section>
               <section class="report-surface">
