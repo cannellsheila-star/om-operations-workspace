@@ -65,6 +65,9 @@
 
         document.addEventListener("click", (event) => {
           if (event.target.closest("[data-action='show-reports']")) {
+            const tariffConfigured = systems.filter((system) => ["Municipal", "Eskom"].includes(system.gridSupply) && system.utilityTariff).length;
+            const generationLinked = systems.filter((system) => findTelemetry(system)).length;
+            const savingsReady = systems.filter((system) => ["Municipal", "Eskom"].includes(system.gridSupply) && system.utilityTariff && findTelemetry(system)).length;
             document.querySelectorAll(".nav-item, .nav-parent").forEach((item) => item.classList.remove("active"));
             reportsButton.classList.add("active");
             document.querySelector("#page-title").textContent = "Reports";
@@ -89,7 +92,21 @@
                   <div><strong>Open work register</strong><span>Tickets, quotes, corrective work and responsible contractor</span></div>
                   <div><strong>Maintenance completion report</strong><span>Six-month schedule, exact completion dates and attached evidence</span></div>
                 </div>
-              </section>`; 
+              </section>
+              <section class="report-surface">
+                <div class="report-header"><h2>Savings reports</h2><span>Grid-cost avoidance and contract cost</span></div>
+                <div class="report-metrics">
+                  <div><span>Utility tariffs recorded</span><strong>${tariffConfigured} / ${systems.length}</strong></div>
+                  <div><span>Generation feeds linked</span><strong>${generationLinked} / ${systems.length}</strong></div>
+                  <div><span>Savings reports ready</span><strong>${savingsReady}</strong></div>
+                  <div><span>Tariffs still required</span><strong>${systems.length - tariffConfigured}</strong></div>
+                </div>
+                <div class="report-list">
+                  <div><strong>Grid-cost avoidance</strong><span>Verified solar generation × the recorded Municipal or Eskom tariff</span></div>
+                  <div><strong>Contract cost</strong><span>PPA energy charge plus EaaS battery charge, where applicable</span></div>
+                  <div><strong>Net saving</strong><span>Grid-cost avoidance less contract cost; no savings value is shown until its tariff and generation inputs are verified</span></div>
+                </div>
+              </section>`;
           }
         });
       })();
