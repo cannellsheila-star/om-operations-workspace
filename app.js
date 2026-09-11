@@ -78,6 +78,7 @@ function showToast(message) {
 
 function setNav() {
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.nav === state.view));
+  document.querySelector(".nav-parent")?.classList.toggle("active", state.view === "overview");
 }
 
 function pageHeader(nextTitle, nextEyebrow, actionLabel = "") {
