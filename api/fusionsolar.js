@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://intl.fusionsolar.huawei.com/thirdData";
+const DEFAULT_BASE_URL = "https://sg5.fusionsolar.huawei.com/thirdData";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -233,7 +233,7 @@ module.exports = async function fusionsolar(req, res) {
       provider: "FusionSolar",
       systems: [],
       message: "FusionSolar connector is ready. Add the Northbound API username and system code in Vercel.",
-      requiredEnvironmentVariables: ["FUSIONSOLAR_USERNAME", "FUSIONSOLAR_SYSTEM_CODE", "FUSIONSOLAR_BASE_URL"],
+      requiredEnvironmentVariables: ["FUSIONSOLAR_USERNAME", "FUSIONSOLAR_SYSTEM_CODE"],
     });
   }
 
