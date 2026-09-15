@@ -2,14 +2,20 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-site-v5-throttle-safe-20260915";
+const VERSION = "fusionsolar-site-v6-kpi-cache-20260915";
 const SESSION_TTL_MS = 25 * 60 * 1000;
 const SESSION_RENEW_MARGIN_MS = 60 * 1000;
+const PLANT_CACHE_MS = 5 * 60 * 1000;
+const STATION_KPI_CACHE_MS = 2 * 60 * 1000;
 const GENERIC_REALTIME_DEVICE_TYPES = new Set([1, 17]);
 
 let cachedSession = null;
 let cachedSessionExpiresAt = 0;
 let loginPromise = null;
+let cachedPlants = null;
+let cachedPlantsAt = 0;
+let cachedStationKpis = new Map();
+let cachedStationKpisAt = 0;
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const numberOrNull = (value) => {
@@ -168,6 +174,10 @@ function plantCapacity(plant) {
 }
 
 async function getPlantList(session) {
+  if (Array.isArray(cachedPlants) && cachedPlants.length && (Date.now() - cachedPlantsAt) < PLANT_CACHE_MS) {
+    return { plants: cachedPlants, endpoint: "/stations", cached: true };
+  }
+
   const modern = await safeCall(session, "/stations", { pageNo: 1 });
   if (modern.ok) {
     const data = modern.payload.data || {};
@@ -178,18 +188,71 @@ async function getPlantList(session) {
       const pageData = page.data || {};
       plants.push(...asArray(pageData.list, pageData.stationList, pageData));
     }
-    return { plants, endpoint: "/stations" };
+    cachedPlants = plants;
+    cachedPlantsAt = Date.now();
+    return { plants, endpoint: "/stations", cached: false };
   }
   const legacy = await call(session, "/getStationList", {});
-  return { plants: asArray(legacy.data, legacy.data?.list), endpoint: "/getStationList", fallbackReason: modern.error };
+  const plants = asArray(legacy.data, legacy.data?.list);
+  cachedPlants = plants;
+  cachedPlantsAt = Date.now();
+  return { plants, endpoint: "/getStationList", fallbackReason: modern.error, cached: false };
 }
 
 function metricMap(row) {
   return row?.dataItemMap || row?.data || row?.kpi || {};
 }
 
+function stationRows(payload) {
+  return asArray(payload?.data, payload?.data?.list);
+}
+
+function cacheStationRows(payload) {
+  const rows = stationRows(payload);
+  if (!rows.length) return;
+  rows.forEach((row) => {
+    const code = clean(row?.stationCode || row?.plantCode);
+    if (code) cachedStationKpis.set(code, row);
+  });
+  cachedStationKpisAt = Date.now();
+}
+
+function cachedStationPayload(codes, allowStale = false) {
+  if (!cachedStationKpis.size) return null;
+  const age = Date.now() - cachedStationKpisAt;
+  if (!allowStale && age >= STATION_KPI_CACHE_MS) return null;
+  const rows = codes.map((code) => cachedStationKpis.get(clean(code))).filter(Boolean);
+  if (rows.length !== codes.length) return null;
+  return { data: rows };
+}
+
+async function getStationRealtime(session, codes) {
+  const fresh = cachedStationPayload(codes, false);
+  if (fresh) return { ok: true, path: "/getStationRealKpi", payload: fresh, cached: true, stale: false };
+
+  const live = await safeCall(session, "/getStationRealKpi", { stationCodes: codes.join(",") });
+  if (live.ok) {
+    cacheStationRows(live.payload);
+    return { ...live, cached: false, stale: false };
+  }
+
+  const stale = cachedStationPayload(codes, true);
+  if (stale) {
+    return {
+      ok: true,
+      path: "/getStationRealKpi",
+      payload: stale,
+      cached: true,
+      stale: true,
+      sourceError: live.error,
+      sourceFailCode: live.failCode ?? null,
+    };
+  }
+  return live;
+}
+
 function stationRow(payload, code) {
-  const rows = asArray(payload?.data, payload?.data?.list);
+  const rows = stationRows(payload);
   return rows.find((item) => clean(item.stationCode || item.plantCode) === clean(code)) || null;
 }
 
@@ -322,11 +385,11 @@ function worstStatus(statuses) {
 }
 
 async function portfolio(session) {
-  const { plants, endpoint, fallbackReason } = await getPlantList(session);
+  const { plants, endpoint, fallbackReason, cached: plantsCached } = await getPlantList(session);
   const codes = plants.map(plantCode).filter(Boolean);
   const real = codes.length
-    ? await safeCall(session, "/getStationRealKpi", { stationCodes: codes.slice(0, 100).join(",") })
-    : { ok: true, payload: { data: [] }, path: "/getStationRealKpi" };
+    ? await getStationRealtime(session, codes.slice(0, 100))
+    : { ok: true, payload: { data: [] }, path: "/getStationRealKpi", cached: false };
   const systems = plants.map((plant) => {
     const code = plantCode(plant);
     const metrics = normaliseStationMetrics(real.ok ? real.payload : {}, code);
@@ -350,9 +413,10 @@ async function portfolio(session) {
     systems,
     endpoint,
     fallbackReason: fallbackReason || "",
+    cache: { plants: Boolean(plantsCached), stationKpis: Boolean(real.cached), stationKpisStale: Boolean(real.stale) },
     apiCoverage: [
       { path: endpoint, ok: true },
-      { path: "/getStationRealKpi", ok: real.ok, error: real.ok ? "" : real.error },
+      { path: "/getStationRealKpi", ok: real.ok, cached: Boolean(real.cached), stale: Boolean(real.stale), error: real.ok ? (real.sourceError || "") : real.error },
     ],
   };
 }
@@ -366,7 +430,7 @@ async function groupedDetail(session, requestedCodes, collectTime) {
   const stationCodes = codes.join(",");
 
   const [real, devList, alarms] = await Promise.all([
-    safeCall(session, "/getStationRealKpi", { stationCodes }),
+    getStationRealtime(session, codes),
     safeCall(session, "/getDevList", { stationCodes }),
     safeCall(session, "/getAlarmList", { stationCodes }),
   ]);
@@ -427,8 +491,9 @@ async function groupedDetail(session, requestedCodes, collectTime) {
     skippedGenericRealtimeDeviceTypes: realtimeDevices.skippedTypeIds,
     alarms: activeAlarms,
     history,
+    cache: { stationKpis: Boolean(real.cached), stationKpisStale: Boolean(real.stale) },
     apiCoverage: [
-      { path: "/getStationRealKpi", ok: real.ok, error: real.ok ? "" : real.error },
+      { path: "/getStationRealKpi", ok: real.ok, cached: Boolean(real.cached), stale: Boolean(real.stale), error: real.ok ? (real.sourceError || "") : real.error },
       { path: "/getDevList", ok: devList.ok, error: devList.ok ? "" : devList.error },
       { path: "/getAlarmList", ok: alarms.ok, error: alarms.ok ? "" : alarms.error },
       ...realtimeDevices.batches.map((item) => ({ path: item.path, ok: item.ok, error: item.ok ? "" : item.error })),
