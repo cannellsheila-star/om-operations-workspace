@@ -153,6 +153,19 @@
       changed = true;
     }
   }
+  tickets.forEach((ticket) => {
+    const stage = ticket.workflow || (["Pending Quote", "Quote Approval"].includes(ticket.status) ? ticket.status : "");
+    if (stage && ticket.status !== "Completed") {
+      if (ticket.status !== "Open") {
+        ticket.status = "Open";
+        changed = true;
+      }
+      if (ticket.workflow !== stage) {
+        ticket.workflow = stage;
+        changed = true;
+      }
+    }
+  });
   if (changed) saveWorkspace();
 })();
 
