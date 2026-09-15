@@ -12,7 +12,14 @@ function getAccounts() {
     const parsed = JSON.parse(process.env.DEYE_CLOUD_ACCOUNTS);
     const list = Array.isArray(parsed) ? parsed : parsed.accounts;
     if (!Array.isArray(list)) throw new Error();
-    return list.filter((account) => account && typeof account === "object");
+    return list
+      .filter((account) => account && typeof account === "object")
+      .map((account) => ({
+        ...account,
+        appSecret: account.appSecret || process.env.DEYE_CLOUD_APP_SECRET,
+        password: account.password || process.env.DEYE_CLOUD_PASSWORD,
+        passwordHash: account.passwordHash || process.env.DEYE_CLOUD_PASSWORD_SHA256,
+      }));
   } catch {
     throw new Error("DEYE_CLOUD_ACCOUNTS must be a valid JSON list.");
   }
