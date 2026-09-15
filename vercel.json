@@ -3,9 +3,6 @@
   "functions": {
     "api/fusionsolar-sg5.js": {
       "regions": ["sin1"]
-    },
-    "api/fusionsolar-intl-probe.js": {
-      "regions": ["sin1"]
     }
   },
   "headers": [
