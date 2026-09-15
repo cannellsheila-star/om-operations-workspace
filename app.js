@@ -262,7 +262,7 @@ function renderTickets() {
     return ticket.source === state.ticketFilter;
   });
   appView.innerHTML = `
-    <p class="subtitle">Every action is a ticket. The source tells you whether it came from monitoring, maintenance, an on-site issue or restorative work.</p>
+    <p class="subtitle">Every action is a ticket. “Picked up from” records how it was identified.</p>
     <div class="filters">${filters.map((filter) => `<button class="filter ${state.ticketFilter === filter ? "active" : ""}" data-filter="${filter}">${filter}</button>`).join("")}</div>
     <div class="section-header"><h2>Tickets</h2><span class="muted">Click a ticket to open its workroom</span></div>
     <div class="ticket-list">
@@ -270,7 +270,7 @@ function renderTickets() {
         <button class="ticket-row" data-action="open-ticket" data-id="${ticket.id}">
           <span class="ticket-number">${ticket.id.slice(-4)}</span>
           <span><span class="card-title">${ticket.issue}</span><span class="card-meta">${ticket.id} · ${system.name} · ${ticket.source}</span></span>
-          <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}<span class="card-meta" style="display:block;margin-top:5px;">${ticket.type}</span></span>
+          <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}</span>
           ${tag(ticket.concern)}
           <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${ticket.opened}</span>
         </button>`; }).join("")}
@@ -286,7 +286,7 @@ function renderTicketWorkroom(id) {
   pageHeader("Ticket workroom", "TICKETS / SELECTED RECORD");
   appView.innerHTML = `
     <div class="record-head">
-      <div><p class="eyebrow">${ticket.id} · ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.type} · ${ticket.source} · Found ${ticket.found}</p></div>
+      <div><p class="eyebrow">${ticket.id} · ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.source} · Found ${ticket.found}</p></div>
       <div>${tag(ticket.status)} ${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""} ${tag(ticket.concern)} <button class="button button-muted" data-action="edit-ticket" data-id="${ticket.id}">Edit ticket</button></div>
     </div>
     <div class="workroom-grid">
@@ -391,13 +391,12 @@ function openModal(kind, context = {}) {
   }
   if (kind === "new-ticket") {
     modalTitle.textContent = "Create ticket";
-    modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>Ticket type</label><select name="type"><option>Operational issue</option><option>Safety issue</option><option>Improvement</option><option>Restorative work</option></select></div><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source / how it was picked up</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option><option>Asset review completed</option><option>Reported by off-taker</option><option>Other</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
+    modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source / how it was picked up</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option><option>Asset review completed</option><option>Reported by off-taker</option><option>Other</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
   }
   if (kind === "edit-ticket") {
     const ticket = context.ticket;
     modalTitle.textContent = `Edit ${ticket.id}`;
     modalContent.innerHTML = `<form class="modal-body" id="edit-ticket-form" data-ticket-id="${ticket.id}"><div class="form-grid">
-      <div class="field"><label>Ticket type</label><select name="type"><option ${ticket.type === "Operational issue" ? "selected" : ""}>Operational issue</option><option ${ticket.type === "Safety issue" ? "selected" : ""}>Safety issue</option><option ${ticket.type === "Improvement" ? "selected" : ""}>Improvement</option><option ${ticket.type === "Restorative work" ? "selected" : ""}>Restorative work</option></select></div>
       <div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}" ${ticket.system === system.id ? "selected" : ""}>${system.name}</option>`).join("")}</select></div>
       <div class="field"><label>Source / how it was picked up</label><select name="source"><option ${ticket.source === "Monitoring alert" ? "selected" : ""}>Monitoring alert</option><option ${ticket.source === "PM visit" ? "selected" : ""}>PM visit</option><option ${ticket.source === "On-site inspection" ? "selected" : ""}>On-site inspection</option><option ${ticket.source === "Asset review" ? "selected" : ""}>Asset review</option><option ${ticket.source === "Asset review completed" ? "selected" : ""}>Asset review completed</option><option ${ticket.source === "Reported by off-taker" ? "selected" : ""}>Reported by off-taker</option><option ${ticket.source === "Other" ? "selected" : ""}>Other</option></select></div>
       <div class="field"><label>Status</label><select name="status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticketWorkflow(ticket) === "Pending Quote" ? "selected" : ""}>Pending Quote</option><option ${ticketWorkflow(ticket) === "Quote Approval" ? "selected" : ""}>Quote Approval</option><option ${ticket.status === "Completed" ? "selected" : ""}>Completed</option></select></div>
@@ -505,7 +504,7 @@ modalContent.addEventListener("submit", (event) => {
   if (event.target.id === "edit-ticket-form") {
     const ticket = getTicket(event.target.dataset.ticketId);
     if (!ticket) return;
-    ticket.type = String(form.get("type"));
+
     ticket.system = String(form.get("system"));
     ticket.source = String(form.get("source"));
     const selectedStage = String(form.get("status"));
@@ -526,7 +525,7 @@ modalContent.addEventListener("submit", (event) => {
     return;
   }
   if (event.target.id !== "ticket-form") return;
-  const ticket = { id: `TKT-2026-${String(43 + tickets.length - 5).padStart(4, "0")}`, type: form.get("type"), system: form.get("system"), source: form.get("source"), issue: form.get("issue"), concern: form.get("concern"), found: "Today", opened: "Today", status: "Open", pm: false, approver: "asset.manager@blueenergy.example", owner: getSystem(form.get("system")).contractor, work: [form.get("work")], files: [] };
+  const ticket = { id: `TKT-2026-${String(43 + tickets.length - 5).padStart(4, "0")}`, system: form.get("system"), source: form.get("source"), issue: form.get("issue"), concern: form.get("concern"), found: "Today", opened: "Today", status: "Open", pm: false, approver: "asset.manager@blueenergy.example", owner: getSystem(form.get("system")).contractor, work: [form.get("work")], files: [] };
   tickets.unshift(ticket); saveWorkspace(); closeModal(); state.ticketFilter = "All open"; renderTicketWorkroom(ticket.id); showToast("New ticket created with a dedicated email address.");
 });
 
