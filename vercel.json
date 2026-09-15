@@ -1,5 +1,10 @@
 {
   "cleanUrls": true,
+  "functions": {
+    "api/fusionsolar-sg5.js": {
+      "regions": ["sin1"]
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
