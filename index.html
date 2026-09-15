@@ -58,6 +58,21 @@
     <script src="automation-client.js"></script>
     <script>
       (() => {
+        const decimalSelector = 'input[name="kwp"], input[name="kwh"]';
+        const allowDecimals = (root = document) => {
+          if (root.matches?.(decimalSelector)) root.step = "any";
+          root.querySelectorAll?.(decimalSelector).forEach((input) => { input.step = "any"; });
+        };
+        allowDecimals();
+        new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) allowDecimals(node);
+          }));
+        }).observe(document.body, { childList: true, subtree: true });
+      })();
+    </script>
+    <script>
+      (() => {
         const reportsButton = document.querySelector("[data-action='show-reports']");
 
         document.addEventListener("click", (event) => {
