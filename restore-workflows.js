@@ -22,7 +22,7 @@
   renderTickets = function renderTicketsRestored() {
     state.view = "tickets";
     pageHeader("Tickets", "O&M / OPEN WORK", "New ticket");
-    const filters = ["All open", "Monitoring alert", "PM visit", "On-site inspection", "Asset review", "Completed"];
+    const filters = ["All open", "Monitoring alert", "PM visit", "On-site inspection", "Asset review", "Asset review completed", "Reported by off-taker", "Other", "Completed"];
     const visible = tickets.filter((ticket) => {
       if (state.ticketFilter === "All open") return ticket.status !== "Completed";
       if (state.ticketFilter === "Completed") return ticket.status === "Completed";
