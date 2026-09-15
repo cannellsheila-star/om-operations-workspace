@@ -2,7 +2,7 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const CONNECTOR_VERSION = "sg5-direct-v3-20260915";
+const CONNECTOR_VERSION = "sg5-direct-v4-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const asArray = (...values) => values.find(Array.isArray) || [];
