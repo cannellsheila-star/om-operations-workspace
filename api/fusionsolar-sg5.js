@@ -2,7 +2,7 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const CONNECTOR_VERSION = "sg5-doh-v5-20260915";
+const CONNECTOR_VERSION = "sg5-doh-v6-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const asArray = (...values) => values.find(Array.isArray) || [];
@@ -65,24 +65,50 @@ function httpsJsonByIp({ ip, servername, hostHeader, path, method = "GET", body 
   });
 }
 
-async function resolveSg5Ips() {
-  // Google Public DNS JSON API reached directly by IP, so this does not depend on Vercel DNS.
-  const result = await httpsJsonByIp({
+async function queryGoogleDns(name) {
+  return httpsJsonByIp({
     ip: "8.8.8.8",
     servername: "dns.google",
     hostHeader: "dns.google",
-    path: `/resolve?name=${encodeURIComponent(HOST)}&type=A`,
+    path: `/resolve?name=${encodeURIComponent(name)}&type=A`,
     method: "GET",
     headers: { Accept: "application/dns-json, application/json" },
   });
+}
 
-  const answers = Array.isArray(result.json?.Answer) ? result.json.Answer : [];
-  const ips = answers
-    .filter((answer) => Number(answer?.type) === 1)
-    .map((answer) => clean(answer?.data))
-    .filter((value) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value));
+async function resolveSg5Ips() {
+  let name = HOST;
+  const chain = [];
 
-  return [...new Set(ips)];
+  for (let depth = 0; depth < 6; depth += 1) {
+    const result = await queryGoogleDns(name);
+    const answers = Array.isArray(result.json?.Answer) ? result.json.Answer : [];
+    const ips = answers
+      .filter((answer) => Number(answer?.type) === 1)
+      .map((answer) => clean(answer?.data))
+      .filter((value) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value));
+
+    chain.push({
+      name,
+      status: Number(result.json?.Status ?? -1),
+      answers: answers.map((answer) => ({
+        name: clean(answer?.name),
+        type: Number(answer?.type),
+        ttl: Number(answer?.TTL),
+        data: clean(answer?.data),
+      })),
+    });
+
+    if (ips.length) {
+      return { ips: [...new Set(ips)], chain };
+    }
+
+    const cname = answers.find((answer) => Number(answer?.type) === 5)?.data;
+    if (!cname) break;
+    name = clean(cname).replace(/\.$/, "");
+  }
+
+  return { ips: [], chain };
 }
 
 function configuredIps() {
@@ -94,16 +120,16 @@ function configuredIps() {
 
 async function currentSg5Ips() {
   const live = await resolveSg5Ips();
-  if (live.length) return { ips: live, source: "dns.google" };
+  if (live.ips.length) return { ips: live.ips, source: "dns.google", dnsChain: live.chain };
   const configured = configuredIps();
-  if (configured.length) return { ips: [...new Set(configured)], source: "FUSIONSOLAR_SG5_IPS" };
-  throw new Error(`[${CONNECTOR_VERSION}] No IPv4 address was returned for ${HOST}.`);
+  if (configured.length) return { ips: [...new Set(configured)], source: "FUSIONSOLAR_SG5_IPS", dnsChain: live.chain };
+  const error = new Error(`[${CONNECTOR_VERSION}] No IPv4 address was returned for ${HOST}.`);
+  error.dnsChain = live.chain;
+  throw error;
 }
 
 async function requestJson(path, body, headers = {}) {
   const resolved = await currentSg5Ips();
-  // Use the first address currently published by Huawei DNS. Do not fan out login attempts,
-  // because FusionSolar has strict failed-login lockout limits.
   const ip = resolved.ips[0];
   const result = await httpsJsonByIp({
     ip,
@@ -115,7 +141,12 @@ async function requestJson(path, body, headers = {}) {
     headers,
     timeout: 20000,
   });
-  return { ...result, resolutionSource: resolved.source, resolvedIps: resolved.ips };
+  return {
+    ...result,
+    resolutionSource: resolved.source,
+    resolvedIps: resolved.ips,
+    dnsChain: resolved.dnsChain,
+  };
 }
 
 function validate(result, path) {
@@ -128,6 +159,7 @@ function validate(result, path) {
     error.loginIp = result?.ip || "";
     error.resolutionSource = result?.resolutionSource || "";
     error.resolvedIps = result?.resolvedIps || [];
+    error.dnsChain = result?.dnsChain || [];
     throw error;
   }
   return payload;
@@ -166,6 +198,7 @@ async function login(username, systemCode) {
     ip: result.ip,
     resolutionSource: result.resolutionSource,
     resolvedIps: result.resolvedIps,
+    dnsChain: result.dnsChain,
   };
 }
 
@@ -208,6 +241,7 @@ module.exports = async function handler(req, res) {
         diagnostic: "dns",
         resolutionSource: resolved.source,
         resolvedIps: resolved.ips,
+        dnsChain: resolved.dnsChain,
       });
     } catch (error) {
       return res.status(502).json({
@@ -215,6 +249,7 @@ module.exports = async function handler(req, res) {
         connectorVersion: CONNECTOR_VERSION,
         server: HOST,
         diagnostic: "dns",
+        dnsChain: error?.dnsChain || [],
         message: String(error.message || error),
       });
     }
@@ -254,6 +289,7 @@ module.exports = async function handler(req, res) {
       loginIp: session.ip,
       resolutionSource: session.resolutionSource,
       resolvedIps: session.resolvedIps,
+      dnsChain: session.dnsChain,
       server: HOST,
       fetchedAt: new Date().toISOString(),
       systems,
@@ -279,6 +315,7 @@ module.exports = async function handler(req, res) {
       loginIp: error?.loginIp || null,
       resolutionSource: error?.resolutionSource || null,
       resolvedIps: error?.resolvedIps || [],
+      dnsChain: error?.dnsChain || [],
       message,
     });
   }
