@@ -1,25 +1,33 @@
 const https = require("https");
 
-const BASE_URL = "https://sg5.fusionsolar.huawei.com/thirdData";
+const HOST = "sg5.fusionsolar.huawei.com";
+const BASE_PATH = "/thirdData";
+const CONNECTOR_VERSION = "sg5-direct-v2-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const asArray = (...values) => values.find(Array.isArray) || [];
 
-function requestJson(path, body, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const target = new URL(BASE_URL + path);
-    const payload = JSON.stringify(body || {});
+function candidateIps() {
+  const configured = clean(process.env.FUSIONSOLAR_SG5_IPS)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([...configured, "43.128.81.107", "119.8.160.213"])];
+}
 
+function requestJsonByIp(ip, path, body, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body || {});
     const req = https.request({
-      protocol: target.protocol,
-      hostname: target.hostname,
-      port: target.port || 443,
-      path: target.pathname + target.search,
+      host: ip,
+      port: 443,
+      servername: HOST,
       method: "POST",
-      family: 4,
-      servername: target.hostname,
+      path: BASE_PATH + path,
+      rejectUnauthorized: true,
       timeout: 20000,
       headers: {
+        Host: HOST,
         "Content-Type": "application/json",
         Accept: "application/json, */*",
         "Content-Length": Buffer.byteLength(payload),
@@ -32,36 +40,50 @@ function requestJson(path, body, headers = {}) {
       response.on("data", (chunk) => { text += chunk; });
       response.on("end", () => {
         let json = {};
-        try { json = text ? JSON.parse(text) : {}; } catch {}
+        try { json = text ? JSON.parse(text) : {}; } catch {
+          const error = new Error(`Non-JSON response from SG5 via ${ip} (HTTP ${response.statusCode || 0}): ${text.slice(0, 220)}`);
+          error.code = "ENONJSON";
+          reject(error);
+          return;
+        }
 
         const status = Number(response.statusCode || 0);
         if (status < 200 || status >= 300) {
-          return reject(new Error(`FusionSolar HTTP ${status}${text ? `: ${text.slice(0, 300)}` : ""}`));
+          const message = json?.message || json?.msg || text.slice(0, 220) || `HTTP ${status}`;
+          const error = new Error(`FusionSolar HTTP ${status} via ${ip}: ${message}`);
+          error.code = `HTTP_${status}`;
+          reject(error);
+          return;
         }
 
-        resolve({
-          json,
-          headers: response.headers,
-          raw: text,
-        });
+        resolve({ json, headers: response.headers || {}, raw: text, ip });
       });
     });
 
     req.on("timeout", () => {
-      const error = new Error("FusionSolar HTTPS request timed out after 20 seconds.");
+      const error = new Error(`FusionSolar HTTPS request to ${ip} timed out after 20 seconds.`);
       error.code = "ETIMEDOUT";
       req.destroy(error);
     });
 
-    req.on("error", (error) => {
-      const parts = [error.code, error.errno, error.syscall, error.hostname].filter(Boolean);
-      const detail = parts.length ? ` (${parts.join(" · ")})` : "";
-      reject(new Error(`FusionSolar network error${detail}: ${error.message || error}`));
-    });
-
+    req.on("error", (error) => reject(error));
     req.write(payload);
     req.end();
   });
+}
+
+async function requestJson(path, body, headers = {}) {
+  const failures = [];
+  for (const ip of candidateIps()) {
+    try {
+      return await requestJsonByIp(ip, path, body, headers);
+    } catch (error) {
+      failures.push(`${ip}: ${error.code || error.name || "ERR"} ${error.message || error}`);
+    }
+  }
+  const error = new Error(`[${CONNECTOR_VERSION}] Direct SG5 transport failed. ${failures.join(" | ")}`);
+  error.code = "EALLSG5HOSTSFAILED";
+  throw error;
 }
 
 function validate(result, path) {
@@ -69,7 +91,7 @@ function validate(result, path) {
   if (payload.success !== true || Number(payload.failCode || 0) !== 0) {
     const code = payload.failCode ?? "unknown";
     const message = payload.message || `FusionSolar request failed at ${path}`;
-    const error = new Error(`${message} (FusionSolar code ${code})`);
+    const error = new Error(`[${CONNECTOR_VERSION}] ${message} (FusionSolar code ${code})`);
     error.failCode = code;
     throw error;
   }
@@ -102,8 +124,8 @@ async function login(username, systemCode) {
     || headerValue(result.headers, "x-xsrf-token")
     || cookieValue(cookie, "XSRF-TOKEN");
 
-  if (!token) throw new Error("FusionSolar login succeeded but Huawei returned no XSRF-TOKEN.");
-  return { token, cookie };
+  if (!token) throw new Error(`[${CONNECTOR_VERSION}] FusionSolar login succeeded but Huawei returned no XSRF-TOKEN.`);
+  return { token, cookie, ip: result.ip };
 }
 
 async function call(session, path, body = {}) {
@@ -131,8 +153,9 @@ async function getPlants(session) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
-  if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed." });
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("X-FusionSolar-Connector", CONNECTOR_VERSION);
+  if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed.", connectorVersion: CONNECTOR_VERSION });
 
   const username = clean(process.env.FUSIONSOLAR_USERNAME);
   const systemCode = String(process.env.FUSIONSOLAR_SYSTEM_CODE ?? "");
@@ -140,9 +163,11 @@ module.exports = async function handler(req, res) {
   if (!username || !systemCode) {
     return res.status(200).json({
       configured: false,
+      connected: false,
       provider: "FusionSolar",
+      connectorVersion: CONNECTOR_VERSION,
       systems: [],
-      message: "FusionSolar Northbound credentials are not present in this deployment.",
+      message: `[${CONNECTOR_VERSION}] FusionSolar Northbound credentials are not present in this deployment.`,
     });
   }
 
@@ -161,20 +186,25 @@ module.exports = async function handler(req, res) {
       configured: true,
       connected: true,
       provider: "FusionSolar",
-      server: "sg5.fusionsolar.huawei.com",
+      connectorVersion: CONNECTOR_VERSION,
+      transport: "direct-ip-with-sg5-sni",
+      loginIp: session.ip,
+      server: HOST,
       fetchedAt: new Date().toISOString(),
       systems,
       plantListEndpoint: result.endpoint,
       fallbackReason: result.fallbackReason || "",
-      message: `${systems.length} FusionSolar plant${systems.length === 1 ? "" : "s"} returned from SG5.`,
+      message: `[${CONNECTOR_VERSION}] ${systems.length} FusionSolar plant${systems.length === 1 ? "" : "s"} returned from SG5.`,
     });
   } catch (error) {
     return res.status(502).json({
       configured: true,
       connected: false,
       provider: "FusionSolar",
-      server: "sg5.fusionsolar.huawei.com",
-      message: error.message || "FusionSolar could not be reached.",
+      connectorVersion: CONNECTOR_VERSION,
+      transport: "direct-ip-with-sg5-sni",
+      server: HOST,
+      message: String(error.message || `[${CONNECTOR_VERSION}] FusionSolar could not be reached.`),
     });
   }
 };
