@@ -1,30 +1,27 @@
 const https = require("https");
+const dns = require("dns").promises;
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const CONNECTOR_VERSION = "sg5-doh-v6-20260915";
+const CONNECTOR_VERSION = "sg5-sin1-v7-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const asArray = (...values) => values.find(Array.isArray) || [];
 
-function httpsJsonByIp({ ip, servername, hostHeader, path, method = "GET", body = null, headers = {}, timeout = 15000 }) {
+function requestJson(path, body, headers = {}) {
   return new Promise((resolve, reject) => {
-    const payload = body == null ? "" : JSON.stringify(body);
+    const payload = JSON.stringify(body || {});
     const req = https.request({
-      host: ip,
+      protocol: "https:",
+      hostname: HOST,
       port: 443,
-      servername,
-      method,
-      path,
-      rejectUnauthorized: true,
-      timeout,
+      path: BASE_PATH + path,
+      method: "POST",
+      timeout: 20000,
       headers: {
-        Host: hostHeader,
+        "Content-Type": "application/json",
         Accept: "application/json, */*",
-        ...(payload ? {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-        } : {}),
+        "Content-Length": Buffer.byteLength(payload),
         "User-Agent": "BlueEnergy-OandM/1.0",
         ...headers,
       },
@@ -35,7 +32,7 @@ function httpsJsonByIp({ ip, servername, hostHeader, path, method = "GET", body 
       response.on("end", () => {
         let json = {};
         try { json = text ? JSON.parse(text) : {}; } catch {
-          const error = new Error(`Non-JSON response from ${hostHeader} via ${ip} (HTTP ${response.statusCode || 0}): ${text.slice(0, 220)}`);
+          const error = new Error(`Non-JSON response from SG5 (HTTP ${response.statusCode || 0}): ${text.slice(0, 220)}`);
           error.code = "ENONJSON";
           reject(error);
           return;
@@ -44,109 +41,25 @@ function httpsJsonByIp({ ip, servername, hostHeader, path, method = "GET", body 
         const status = Number(response.statusCode || 0);
         if (status < 200 || status >= 300) {
           const message = json?.message || json?.msg || text.slice(0, 220) || `HTTP ${status}`;
-          const error = new Error(`HTTP ${status} from ${hostHeader} via ${ip}: ${message}`);
+          const error = new Error(`FusionSolar HTTP ${status}: ${message}`);
           error.code = `HTTP_${status}`;
           reject(error);
           return;
         }
 
-        resolve({ json, headers: response.headers || {}, raw: text, ip, status });
+        resolve({ json, headers: response.headers || {}, raw: text });
       });
     });
 
     req.on("timeout", () => {
-      const error = new Error(`HTTPS request to ${hostHeader} via ${ip} timed out after ${timeout} ms.`);
+      const error = new Error("FusionSolar HTTPS request timed out after 20 seconds.");
       error.code = "ETIMEDOUT";
       req.destroy(error);
     });
     req.on("error", (error) => reject(error));
-    if (payload) req.write(payload);
+    req.write(payload);
     req.end();
   });
-}
-
-async function queryGoogleDns(name) {
-  return httpsJsonByIp({
-    ip: "8.8.8.8",
-    servername: "dns.google",
-    hostHeader: "dns.google",
-    path: `/resolve?name=${encodeURIComponent(name)}&type=A`,
-    method: "GET",
-    headers: { Accept: "application/dns-json, application/json" },
-  });
-}
-
-async function resolveSg5Ips() {
-  let name = HOST;
-  const chain = [];
-
-  for (let depth = 0; depth < 6; depth += 1) {
-    const result = await queryGoogleDns(name);
-    const answers = Array.isArray(result.json?.Answer) ? result.json.Answer : [];
-    const ips = answers
-      .filter((answer) => Number(answer?.type) === 1)
-      .map((answer) => clean(answer?.data))
-      .filter((value) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value));
-
-    chain.push({
-      name,
-      status: Number(result.json?.Status ?? -1),
-      answers: answers.map((answer) => ({
-        name: clean(answer?.name),
-        type: Number(answer?.type),
-        ttl: Number(answer?.TTL),
-        data: clean(answer?.data),
-      })),
-    });
-
-    if (ips.length) {
-      return { ips: [...new Set(ips)], chain };
-    }
-
-    const cname = answers.find((answer) => Number(answer?.type) === 5)?.data;
-    if (!cname) break;
-    name = clean(cname).replace(/\.$/, "");
-  }
-
-  return { ips: [], chain };
-}
-
-function configuredIps() {
-  return clean(process.env.FUSIONSOLAR_SG5_IPS)
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-async function currentSg5Ips() {
-  const live = await resolveSg5Ips();
-  if (live.ips.length) return { ips: live.ips, source: "dns.google", dnsChain: live.chain };
-  const configured = configuredIps();
-  if (configured.length) return { ips: [...new Set(configured)], source: "FUSIONSOLAR_SG5_IPS", dnsChain: live.chain };
-  const error = new Error(`[${CONNECTOR_VERSION}] No IPv4 address was returned for ${HOST}.`);
-  error.dnsChain = live.chain;
-  throw error;
-}
-
-async function requestJson(path, body, headers = {}) {
-  const resolved = await currentSg5Ips();
-  const ip = resolved.ips[0];
-  const result = await httpsJsonByIp({
-    ip,
-    servername: HOST,
-    hostHeader: HOST,
-    path: BASE_PATH + path,
-    method: "POST",
-    body,
-    headers,
-    timeout: 20000,
-  });
-  return {
-    ...result,
-    resolutionSource: resolved.source,
-    resolvedIps: resolved.ips,
-    dnsChain: resolved.dnsChain,
-  };
 }
 
 function validate(result, path) {
@@ -156,10 +69,6 @@ function validate(result, path) {
     const message = payload.message || `FusionSolar request failed at ${path}`;
     const error = new Error(`[${CONNECTOR_VERSION}] ${message} (FusionSolar code ${code})`);
     error.failCode = code;
-    error.loginIp = result?.ip || "";
-    error.resolutionSource = result?.resolutionSource || "";
-    error.resolvedIps = result?.resolvedIps || [];
-    error.dnsChain = result?.dnsChain || [];
     throw error;
   }
   return payload;
@@ -192,14 +101,7 @@ async function login(username, systemCode) {
     || cookieValue(cookie, "XSRF-TOKEN");
 
   if (!token) throw new Error(`[${CONNECTOR_VERSION}] FusionSolar login succeeded but Huawei returned no XSRF-TOKEN.`);
-  return {
-    token,
-    cookie,
-    ip: result.ip,
-    resolutionSource: result.resolutionSource,
-    resolvedIps: result.resolvedIps,
-    dnsChain: result.dnsChain,
-  };
+  return { token, cookie };
 }
 
 async function call(session, path, body = {}) {
@@ -233,15 +135,14 @@ module.exports = async function handler(req, res) {
 
   if (String(req.query?.diagnostic || "").toLowerCase() === "dns") {
     try {
-      const resolved = await currentSg5Ips();
+      const addresses = await dns.lookup(HOST, { all: true });
       return res.status(200).json({
         provider: "FusionSolar",
         connectorVersion: CONNECTOR_VERSION,
         server: HOST,
         diagnostic: "dns",
-        resolutionSource: resolved.source,
-        resolvedIps: resolved.ips,
-        dnsChain: resolved.dnsChain,
+        addresses,
+        region: process.env.VERCEL_REGION || null,
       });
     } catch (error) {
       return res.status(502).json({
@@ -249,8 +150,8 @@ module.exports = async function handler(req, res) {
         connectorVersion: CONNECTOR_VERSION,
         server: HOST,
         diagnostic: "dns",
-        dnsChain: error?.dnsChain || [],
-        message: String(error.message || error),
+        region: process.env.VERCEL_REGION || null,
+        message: `${error.code || error.name || "ERR"}: ${error.message || error}`,
       });
     }
   }
@@ -285,11 +186,8 @@ module.exports = async function handler(req, res) {
       connected: true,
       provider: "FusionSolar",
       connectorVersion: CONNECTOR_VERSION,
-      transport: "live-doh-ip-with-sg5-sni",
-      loginIp: session.ip,
-      resolutionSource: session.resolutionSource,
-      resolvedIps: session.resolvedIps,
-      dnsChain: session.dnsChain,
+      transport: "native-dns",
+      region: process.env.VERCEL_REGION || null,
       server: HOST,
       fetchedAt: new Date().toISOString(),
       systems,
@@ -309,13 +207,10 @@ module.exports = async function handler(req, res) {
       connected: false,
       provider: "FusionSolar",
       connectorVersion: CONNECTOR_VERSION,
-      transport: "live-doh-ip-with-sg5-sni",
+      transport: "native-dns",
+      region: process.env.VERCEL_REGION || null,
       server: HOST,
       failCode: error?.failCode ?? null,
-      loginIp: error?.loginIp || null,
-      resolutionSource: error?.resolutionSource || null,
-      resolvedIps: error?.resolvedIps || [],
-      dnsChain: error?.dnsChain || [],
       message,
     });
   }
