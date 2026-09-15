@@ -2,7 +2,7 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const CONNECTOR_VERSION = "sg5-direct-v2-20260915";
+const CONNECTOR_VERSION = "sg5-direct-v3-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const asArray = (...values) => values.find(Array.isArray) || [];
@@ -158,7 +158,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ message: "Method not allowed.", connectorVersion: CONNECTOR_VERSION });
 
   const username = clean(process.env.FUSIONSOLAR_USERNAME);
-  const systemCode = String(process.env.FUSIONSOLAR_SYSTEM_CODE ?? "");
+  const systemCode = clean(process.env.FUSIONSOLAR_SYSTEM_CODE);
 
   if (!username || !systemCode) {
     return res.status(200).json({
@@ -197,6 +197,12 @@ module.exports = async function handler(req, res) {
       message: `[${CONNECTOR_VERSION}] ${systems.length} FusionSolar plant${systems.length === 1 ? "" : "s"} returned from SG5.`,
     });
   } catch (error) {
+    const rejected = Number(error?.failCode) === 20400;
+    const safeCredentialMeta = `Northbound username sent: ${username}; systemCode length: ${systemCode.length}.`;
+    const message = rejected
+      ? `[${CONNECTOR_VERSION}] Huawei rejected the Northbound username/password (FusionSolar code 20400). ${safeCredentialMeta}`
+      : String(error.message || `[${CONNECTOR_VERSION}] FusionSolar could not be reached.`);
+
     return res.status(502).json({
       configured: true,
       connected: false,
@@ -204,7 +210,8 @@ module.exports = async function handler(req, res) {
       connectorVersion: CONNECTOR_VERSION,
       transport: "direct-ip-with-sg5-sni",
       server: HOST,
-      message: String(error.message || `[${CONNECTOR_VERSION}] FusionSolar could not be reached.`),
+      failCode: error?.failCode ?? null,
+      message,
     });
   }
 };
