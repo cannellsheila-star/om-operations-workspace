@@ -70,6 +70,12 @@ const openTicketsForSystem = (id) => tickets.filter((ticket) => ticket.system ==
 const statusTone = (status) => status === "Operational" || status === "Open" || status === "Completed" ? "green" : status === "Critical" || status === "Non-operational" ? "red" : status === "Quote Approval" ? "blue" : "amber";
 const tag = (value) => `<span class="tag tag-${statusTone(value)}">${value}</span>`;
 
+function emailHistory(ticket) {
+  const messages = Array.isArray(ticket.emailHistory) ? ticket.emailHistory : [];
+  if (!messages.length) return `<p class="empty-message">No email messages have been recorded for this ticket.</p>`;
+  return messages.map((message) => `<div class="email-row"><strong>${message.from}</strong><span>${message.subject}</span><span class="tag tag-${message.direction === "Sent" ? "green" : "blue"}">${message.direction}</span></div>`).join("");
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.hidden = false;
@@ -248,7 +254,7 @@ function detail(label, value) { return `<span><span class="detail-label">${label
 function renderTickets() {
   state.view = "tickets";
   pageHeader("Tickets", "O&M / OPEN WORK", "New ticket");
-  const filters = ["All open", "Monitoring alert", "PM visit", "On-site inspection", "Asset review", "Completed"];
+  const filters = ["All open", "Monitoring alert", "PM visit", "On-site inspection", "Asset review", "Asset review completed", "Reported by off-taker", "Other", "Completed"];
   const visible = tickets.filter((ticket) => {
     if (state.ticketFilter === "All open") return ticket.status !== "Completed";
     if (state.ticketFilter === "Completed") return ticket.status === "Completed";
@@ -299,9 +305,7 @@ function renderTicketWorkroom(id) {
           <div class="surface-title"><h3>Dedicated ticket email</h3><button class="text-link" data-action="copy-email">Copy</button></div>
           <div class="email-address">${ticketEmail(ticket.id)}</div>
           <p class="muted">Every sent and received message belongs to this record.</p>
-          <div class="email-row"><strong>${ticket.owner}</strong><span>Inspection or quote update</span><span class="tag tag-blue">Reply</span></div>
-          <div class="email-row"><strong>Blue Energy</strong><span>Work package and evidence</span><span class="tag tag-green">Sent</span></div>
-          <div class="email-row"><strong>${ticket.owner}</strong><span>${ticket.status === "Quote Approval" ? "Supplier quote received" : "Update requested"}</span><span class="tag tag-blue">Reply</span></div>
+          ${emailHistory(ticket)}
           <button class="button button-primary" style="width:100%;margin-top:16px;" data-action="prepare-email">Prepare update email</button>
         </section>
         <section class="surface">
@@ -386,7 +390,7 @@ function openModal(kind, context = {}) {
   }
   if (kind === "new-ticket") {
     modalTitle.textContent = "Create ticket";
-    modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>Ticket type</label><select name="type"><option>Operational issue</option><option>Maintenance finding</option><option>Restorative work</option></select></div><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
+    modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>Ticket type</label><select name="type"><option>Operational issue</option><option>Maintenance finding</option><option>Restorative work</option></select></div><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source / how it was picked up</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option><option>Asset review completed</option><option>Reported by off-taker</option><option>Other</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
   }
   if (kind === "email") {
     modalTitle.textContent = context.title || "Prepare email";
