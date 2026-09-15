@@ -137,3 +137,6 @@
   }
   if (changed) saveWorkspace();
 })();
+
+// Repaint the overview only after the corrected records and linked tickets are in place.
+if (state.view === "overview") renderSystemRegister();
