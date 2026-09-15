@@ -33,6 +33,11 @@
     return `${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
   }
 
+  function mappedSites() {
+    if (!Array.isArray(window.systems)) return [];
+    return window.systems.filter((system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length);
+  }
+
   function installStyles() {
     if (document.getElementById("fusion-status-style")) return;
     const style = document.createElement("style");
@@ -44,11 +49,10 @@
       .fusion-dot{width:10px;height:10px;border-radius:50%;background:#9ca3af;box-shadow:0 0 0 3px rgba(156,163,175,.15)}
       .fusion-dot.ok{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
       .fusion-dot.bad{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.15)}
-      .fusion-dot.loading{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
-      .fusion-dot.cooldown{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
+      .fusion-dot.loading,.fusion-dot.cooldown{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
       .fusion-meta{font-size:12px;opacity:.72;margin-top:4px}
       .fusion-plants{display:flex;gap:8px;flex-wrap:wrap}
-      .fusion-plant{font-size:12px;border:1px solid var(--line,#d8dee8);border-radius:999px;padding:5px 8px}
+      .fusion-plant{font-size:12px;border:1px solid var(--line,#d8dee8);border-radius:999px;padding:5px 8px;background:#fff}
       .fusion-error{font-size:12px;padding:9px 10px;border:1px solid rgba(220,38,38,.35);border-radius:7px;background:rgba(220,38,38,.06)}
       .fusion-cooldown{font-size:12px;padding:9px 10px;border:1px solid rgba(217,119,6,.35);border-radius:7px;background:rgba(217,119,6,.06)}
     `;
@@ -57,7 +61,8 @@
 
   function cardHtml() {
     clearExpiredCooldown();
-    const systems = Array.isArray(fusionState.data?.systems) ? fusionState.data.systems : [];
+    const plants = Array.isArray(fusionState.data?.systems) ? fusionState.data.systems : [];
+    const sites = mappedSites();
     const remaining = cooldownRemainingMs();
     const checked = fusionState.checkedAt
       ? new Date(fusionState.checkedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
@@ -80,9 +85,9 @@
     } else if (fusionState.status === "ready") {
       dot = "ok";
       label = "Connected";
-      detail = `${systems.length} FusionSolar plant${systems.length === 1 ? "" : "s"} returned from SG5.`;
-      if (systems.length) {
-        body = `<div class="fusion-plants">${systems.slice(0, 20).map((system) => `<span class="fusion-plant">${esc(system.name || system.providerStationId)}</span>`).join("")}${systems.length > 20 ? `<span class="fusion-plant">+${systems.length - 20} more</span>` : ""}</div>`;
+      detail = `${plants.length} FusionSolar plant${plants.length === 1 ? "" : "s"} connected and mapped into ${sites.length} workspace site${sites.length === 1 ? "" : "s"}.`;
+      if (sites.length) {
+        body = `<div class="fusion-plants">${sites.map((site) => `<span class="fusion-plant">${esc(site.name)} · ${site.fusionSolarPlants.length} plant${site.fusionSolarPlants.length === 1 ? "" : "s"}</span>`).join("")}</div>`;
       }
     } else if (fusionState.status === "error") {
       dot = "bad";
