@@ -70,6 +70,11 @@ const openTicketsForSystem = (id) => tickets.filter((ticket) => ticket.system ==
 const statusTone = (status) => status === "Operational" || status === "Open" || status === "Completed" ? "green" : status === "Critical" || status === "Non-operational" ? "red" : status === "Quote Approval" ? "blue" : "amber";
 const tag = (value) => `<span class="tag tag-${statusTone(value)}">${value}</span>`;
 const ticketWorkflow = (ticket) => ticket.workflow || (["Pending Quote", "Quote Approval"].includes(ticket.status) ? ticket.status : "");
+const workLogEntries = (ticket) => (Array.isArray(ticket.work) ? ticket.work : []).map((entry, index) => {
+  if (entry && typeof entry === "object") return { date: String(entry.date || ""), note: String(entry.note ?? entry.text ?? entry.update ?? "") };
+  return { date: index === 0 ? String(ticket.opened || ticket.found || "Date not recorded") : "Date not recorded", note: String(entry || "") };
+});
+const latestWorkNote = (ticket) => workLogEntries(ticket).at(-1)?.note || "No work update recorded";
 
 function emailHistory(ticket) {
   const messages = Array.isArray(ticket.emailHistory) ? ticket.emailHistory : [];
@@ -293,7 +298,7 @@ function renderTicketWorkroom(id) {
       <div>
         <section class="surface">
           <div class="surface-title"><h3>Work log & next action</h3><span class="muted">Owner: ${ticket.owner}</span></div>
-          <div class="timeline">${ticket.work.map((item, index) => `<div class="timeline-item"><span class="timeline-date">${index === 0 ? ticket.opened : `STEP ${index + 1}`}</span><span class="timeline-copy">${item}</span></div>`).join("")}</div>
+          <div class="timeline">${workLogEntries(ticket).map((entry) => `<div class="timeline-item"><span class="timeline-date">${entry.date || "Date not recorded"}</span><span class="timeline-copy">${entry.note}</span></div>`).join("")}</div>
           <div class="monitor-alert" style="margin-top:18px;background:#e9f3ff;color:#164b7c;"><strong>NEXT</strong><span>${ticketWorkflow(ticket) === "Quote Approval" ? `Approval email is ready for ${ticket.approver}.` : `Keep the work log updated and move the ticket through the workflow.`}</span></div>
         </section>
         <section class="surface">
@@ -406,7 +411,7 @@ function openModal(kind, context = {}) {
       <div class="field"><label>Ticket opened date</label><input name="opened" value="${ticket.opened || ""}" placeholder="e.g. 15 September 2026" /></div>
       <div class="field"><label>Quote approver</label><input name="approver" value="${ticket.approver || ""}" placeholder="Only required for quote approval" /></div>
       <div class="field full"><label>Issue / work item</label><input name="issue" required value="${ticket.issue || ""}" /></div>
-      <div class="field full"><label>Add work-log update</label><textarea name="workUpdate" placeholder="Add what has changed, what has been done or what happens next. This is added to the existing work log."></textarea></div>
+      <div class="field"><label>Update date</label><input name="workDate" type="date" /></div><div class="field full"><label>Add work-log update</label><textarea name="workUpdate" placeholder="Add what has changed, what has been done or what happens next. This is added to the existing work log."></textarea></div>
     </div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Save ticket changes</button></div></form>`;
   }
   if (kind === "email") {
@@ -435,7 +440,7 @@ function onAction(action, id) {
   if (action === "document") showToast("Document access will connect to the selected system folder.");
   if (action === "add-photo") openModal("files");
   if (action === "copy-email") { navigator.clipboard?.writeText(ticketEmail(state.selectedTicket)); showToast("Dedicated ticket email copied."); }
-  if (action === "prepare-email") { const ticket = getTicket(state.selectedTicket); openModal("email", { title: "Prepare ticket update", to: ticket.owner === "Blue Energy Africa" ? "operations@blueenergyafrica.example" : getSystem(ticket.system).contact, subject: `${ticket.id} — ${ticket.issue}`, body: `Please see the current update for ${ticket.id}.\n\nNext action: ${ticket.work.at(-1)}` }); }
+  if (action === "prepare-email") { const ticket = getTicket(state.selectedTicket); openModal("email", { title: "Prepare ticket update", to: ticket.owner === "Blue Energy Africa" ? "operations@blueenergyafrica.example" : getSystem(ticket.system).contact, subject: `${ticket.id} — ${ticket.issue}`, body: `Please see the current update for ${ticket.id}.\n\nNext action: ${latestWorkNote(ticket)}` }); }
   if (action === "prepare-pm-email") { const item = getMaintenance(state.selectedMaintenance); const system = getSystem(item.system); openModal("email", { title: "Prepare PM email package", to: system.contact, subject: `${item.month} PM — ${system.name}`, body: `Please find the PM scope and linked corrective work for ${system.name}. System documents are attached from the selected document library.` }); }
   if (action === "quote-approved") { const ticket = getTicket(state.selectedTicket); ticket.status = "Open"; saveWorkspace(); renderTicketWorkroom(ticket.id); showToast("Approval recorded; ticket returned to the active work queue."); }
   if (action === "queue-email") { closeModal(); showToast("Email package queued for the connected sending service."); }
@@ -517,7 +522,8 @@ modalContent.addEventListener("submit", (event) => {
     ticket.approver = String(form.get("approver")).trim();
     ticket.issue = String(form.get("issue")).trim();
     const update = String(form.get("workUpdate")).trim();
-    if (update) { ticket.work = Array.isArray(ticket.work) ? ticket.work : []; ticket.work.push(update); }
+    const updateDate = String(form.get("workDate") || "").trim();
+    if (update) { ticket.work = Array.isArray(ticket.work) ? ticket.work : []; ticket.work.push({ date: updateDate || "Date not recorded", note: update }); }
     saveWorkspace();
     closeModal();
     renderTicketWorkroom(ticket.id);
