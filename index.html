@@ -59,16 +59,77 @@
     <script>
       (() => {
         const decimalSelector = 'input[name="kwp"], input[name="kwh"]';
-        const allowDecimals = (root = document) => {
+        const prepareSystemForm = (root = document) => {
           if (root.matches?.(decimalSelector)) root.step = "any";
           root.querySelectorAll?.(decimalSelector).forEach((input) => { input.step = "any"; });
+          if (root.matches?.("#system-form")) root.noValidate = true;
+          root.querySelectorAll?.("#system-form").forEach((form) => { form.noValidate = true; });
         };
-        allowDecimals();
+        prepareSystemForm();
         new MutationObserver((mutations) => {
           mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === 1) allowDecimals(node);
+            if (node.nodeType === 1) prepareSystemForm(node);
           }));
         }).observe(document.body, { childList: true, subtree: true });
+
+        const numericFields = new Set(["kwp", "kwh", "systemCount", "ppaTenor", "eassTenor"]);
+        const saveEditedSystem = (form) => {
+          const editedId = form.dataset.systemId;
+          if (!editedId) return false;
+          const system = systems.find((item) => item.id === editedId);
+          if (!system) {
+            showToast("System record could not be found.");
+            return true;
+          }
+          const data = new FormData(form);
+          const name = String(data.get("name") || "").trim();
+          if (!name) {
+            showToast("Enter a system name before saving.");
+            return true;
+          }
+          for (const [key, raw] of data.entries()) {
+            if (key === "id") continue;
+            if (numericFields.has(key)) {
+              const value = String(raw).trim().replace(",", ".");
+              system[key] = value === "" ? null : Number(value);
+            } else {
+              system[key] = String(raw).trim();
+            }
+          }
+          system.systemCount = system.systemCount || 1;
+          system.monitoring = system.platform ? `${system.platform} · connection pending` : "Monitoring platform not recorded";
+          system.alert = system.alert || "No monitoring exception recorded.";
+          system.documents = system.documents || [];
+          system.updates = ["System record updated today", ...(system.updates || [])];
+          saveWorkspace();
+          closeModal();
+          renderSystemRecord(system.id);
+          showToast("System record updated.");
+          return true;
+        };
+
+        document.addEventListener("submit", (event) => {
+          if (event.target?.id !== "system-form" || !event.target.dataset.systemId) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          saveEditedSystem(event.target);
+        }, true);
+
+        document.addEventListener("click", (event) => {
+          const button = event.target.closest?.('#system-form button[type="submit"]');
+          const form = button?.form;
+          if (!form?.dataset.systemId) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          saveEditedSystem(form);
+        }, true);
+
+        const kruger = systems.find((system) => system.id === "SYS-018");
+        if (kruger && kruger.name !== "Sleepover Kruger Gate") {
+          kruger.name = "Sleepover Kruger Gate";
+          saveWorkspace();
+          if (state.view === "overview") renderSystemRegister();
+        }
       })();
     </script>
     <script>
