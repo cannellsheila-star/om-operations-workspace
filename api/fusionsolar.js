@@ -2,12 +2,15 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-site-v6-kpi-cache-20260915";
+const VERSION = "fusionsolar-site-v7-ess41-20260915";
 const SESSION_TTL_MS = 25 * 60 * 1000;
 const SESSION_RENEW_MARGIN_MS = 60 * 1000;
 const PLANT_CACHE_MS = 5 * 60 * 1000;
 const STATION_KPI_CACHE_MS = 2 * 60 * 1000;
-const GENERIC_REALTIME_DEVICE_TYPES = new Set([1, 17]);
+const DEVICE_REALTIME_CACHE_MS = 5 * 60 * 1000;
+const DEVICE_REALTIME_MIN_CALL_MS = 65 * 1000;
+const GENERIC_REALTIME_DEVICE_TYPES = new Set([1, 10, 17, 38, 39, 41, 47, 23070]);
+const DEVICE_REALTIME_PRIORITY = [41, 39, 1, 17, 38, 47, 10, 23070];
 
 let cachedSession = null;
 let cachedSessionExpiresAt = 0;
@@ -16,6 +19,8 @@ let cachedPlants = null;
 let cachedPlantsAt = 0;
 let cachedStationKpis = new Map();
 let cachedStationKpisAt = 0;
+let cachedDeviceRealtimeById = new Map();
+let lastDeviceRealtimeCallAt = 0;
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const numberOrNull = (value) => {
@@ -291,6 +296,10 @@ function deviceShell(device) {
   };
 }
 
+function realtimeRowId(row) {
+  return String(row?.devId ?? row?.id ?? "");
+}
+
 function flattenDeviceRealtime(payloads) {
   const rows = [];
   payloads.forEach((batch) => {
@@ -300,27 +309,81 @@ function flattenDeviceRealtime(payloads) {
   return rows;
 }
 
+function cacheDeviceRealtimeRows(rows) {
+  const now = Date.now();
+  rows.forEach((row) => {
+    const id = realtimeRowId(row);
+    if (id) cachedDeviceRealtimeById.set(id, { row, at: now });
+  });
+}
+
+function cachedRealtimeRows(devices, allowStale = false) {
+  const now = Date.now();
+  const rows = [];
+  devices.forEach((device) => {
+    const item = cachedDeviceRealtimeById.get(String(device.id));
+    if (!item) return;
+    if (!allowStale && (now - item.at) >= DEVICE_REALTIME_CACHE_MS) return;
+    rows.push(item.row);
+  });
+  return rows;
+}
+
 function deviceMetricMaps(rows) {
   return rows.map((row) => ({ row, values: metricMap(row) }));
 }
 
-function batterySummary(rows) {
-  const maps = deviceMetricMaps(rows);
-  const socs = [];
-  let chargeKw = 0;
-  let dischargeKw = 0;
-  maps.forEach(({ values }) => {
-    const soc = metricValue(values, ["battery_soc", "soc", "battery_state_of_capacity", "battery_capacity"]);
-    if (soc !== null && soc >= 0 && soc <= 100) socs.push(soc);
-    const charge = metricValue(values, ["charge_power", "battery_charge_power"]);
-    const discharge = metricValue(values, ["discharge_power", "battery_discharge_power"]);
-    if (charge !== null && charge > 0) chargeKw += charge;
-    if (discharge !== null && discharge > 0) dischargeKw += discharge;
-  });
+function batteryDeviceMetrics(devices, rows) {
+  const byId = new Map(devices.map((device) => [String(device.id), device]));
+  return rows.map((row) => {
+    const device = byId.get(realtimeRowId(row));
+    if (!device || ![39, 41].includes(device.typeId)) return null;
+    const values = metricMap(row);
+    const signedW = metricValue(values, ["ch_discharge_power"]);
+    const chargeW = metricValue(values, ["charge_power", "battery_charge_power"]);
+    const dischargeW = metricValue(values, ["discharge_power", "battery_discharge_power"]);
+    const signedPowerKw = signedW !== null
+      ? signedW / 1000
+      : chargeW !== null
+        ? Math.abs(chargeW) / 1000
+        : dischargeW !== null
+          ? -Math.abs(dischargeW) / 1000
+          : null;
+    return {
+      id: device.id,
+      sn: device.sn,
+      name: device.name || device.model || `ESS ${device.id}`,
+      model: device.model,
+      stationCode: device.stationCode,
+      typeId: device.typeId,
+      soc: metricValue(values, ["battery_soc", "soc", "battery_state_of_capacity"]),
+      soh: metricValue(values, ["battery_soh", "soh"]),
+      signedPowerKw,
+      chargePowerKw: signedPowerKw !== null && signedPowerKw > 0 ? signedPowerKw : (signedPowerKw === 0 ? 0 : null),
+      dischargePowerKw: signedPowerKw !== null && signedPowerKw < 0 ? Math.abs(signedPowerKw) : (signedPowerKw === 0 ? 0 : null),
+      chargeTodayKwh: metricValue(values, ["charge_cap", "charged_energy", "charge_energy"]),
+      dischargeTodayKwh: metricValue(values, ["discharge_cap", "discharged_energy", "discharge_energy"]),
+      runState: metricValue(values, ["run_state", "battery_status"]),
+      raw: values,
+    };
+  }).filter(Boolean);
+}
+
+function batterySummary(devices, rows) {
+  const returned = batteryDeviceMetrics(devices, rows);
+  const socs = returned.map((item) => item.soc).filter((value) => value !== null && value >= 0 && value <= 100);
+  const sohs = returned.map((item) => item.soh).filter((value) => value !== null && value >= 0 && value <= 100);
+  const powers = returned.map((item) => item.signedPowerKw).filter((value) => value !== null);
+  const chargeToday = returned.map((item) => item.chargeTodayKwh).filter((value) => value !== null);
+  const dischargeToday = returned.map((item) => item.dischargeTodayKwh).filter((value) => value !== null);
   return {
     batterySoc: socs.length ? socs.reduce((sum, value) => sum + value, 0) / socs.length : null,
-    chargePowerKw: chargeKw || null,
-    dischargePowerKw: dischargeKw || null,
+    batterySoh: sohs.length ? sohs.reduce((sum, value) => sum + value, 0) / sohs.length : null,
+    chargePowerKw: powers.length ? powers.filter((value) => value > 0).reduce((sum, value) => sum + value, 0) : null,
+    dischargePowerKw: powers.length ? powers.filter((value) => value < 0).reduce((sum, value) => sum + Math.abs(value), 0) : null,
+    chargeTodayKwh: chargeToday.length ? chargeToday.reduce((sum, value) => sum + value, 0) : null,
+    dischargeTodayKwh: dischargeToday.length ? dischargeToday.reduce((sum, value) => sum + value, 0) : null,
+    devices: returned,
   };
 }
 
@@ -336,20 +399,40 @@ async function getDeviceRealtime(session, devices) {
     if (!groups.has(device.typeId)) groups.set(device.typeId, []);
     groups.get(device.typeId).push(device);
   });
+
   const batches = [];
-  for (const [typeId, group] of groups) {
-    for (let index = 0; index < group.length; index += 100) {
-      const batch = group.slice(index, index + 100);
-      batches.push(await safeCall(session, "/getDevRealKpi", {
-        devIds: batch.map((item) => item.id).join(","),
-        devTypeId: Number(typeId),
-      }));
-    }
+  const now = Date.now();
+  const groupNeedsRefresh = (group) => group.some((device) => {
+    const item = cachedDeviceRealtimeById.get(String(device.id));
+    return !item || (now - item.at) >= DEVICE_REALTIME_CACHE_MS;
+  });
+  const candidates = DEVICE_REALTIME_PRIORITY
+    .filter((typeId) => groups.has(typeId) && groupNeedsRefresh(groups.get(typeId)));
+
+  let selectedTypeId = null;
+  let rateLimited = false;
+  if (candidates.length && (now - lastDeviceRealtimeCallAt) >= DEVICE_REALTIME_MIN_CALL_MS) {
+    selectedTypeId = candidates[0];
+    const group = groups.get(selectedTypeId).slice(0, 100);
+    lastDeviceRealtimeCallAt = Date.now();
+    const result = await safeCall(session, "/getDevRealKpi", {
+      devIds: group.map((item) => item.id).join(","),
+      devTypeId: Number(selectedTypeId),
+    });
+    batches.push({ ...result, devTypeId: selectedTypeId, deviceCount: group.length });
+    if (result.ok) cacheDeviceRealtimeRows(asArray(result.payload?.data, result.payload?.data?.list));
+  } else if (candidates.length) {
+    rateLimited = true;
   }
+
   return {
     batches,
-    rows: flattenDeviceRealtime(batches),
+    rows: cachedRealtimeRows(devices, true),
     skippedTypeIds: [...skippedTypeIds].sort((a, b) => a - b),
+    selectedTypeId,
+    pendingTypeIds: candidates.filter((typeId) => typeId !== selectedTypeId),
+    rateLimited,
+    nextAllowedAt: lastDeviceRealtimeCallAt ? new Date(lastDeviceRealtimeCallAt + DEVICE_REALTIME_MIN_CALL_MS).toISOString() : null,
   };
 }
 
@@ -358,7 +441,7 @@ function inverterPowerByStation(devices, realtimeRows) {
   const totals = new Map();
   const seen = new Set();
   realtimeRows.forEach((row) => {
-    const device = byId.get(String(row?.devId ?? row?.id ?? ""));
+    const device = byId.get(realtimeRowId(row));
     if (!device || device.typeId !== 1 || !device.stationCode) return;
     const power = metricValue(metricMap(row), ["active_power", "real_power", "pv_power"]);
     if (power === null) return;
@@ -436,8 +519,8 @@ async function groupedDetail(session, requestedCodes, collectTime) {
   ]);
 
   const devices = devList.ok ? asArray(devList.payload?.data, devList.payload?.data?.list).map(deviceShell) : [];
-  const realtimeDevices = devices.length ? await getDeviceRealtime(session, devices) : { batches: [], rows: [], skippedTypeIds: [] };
-  const bess = batterySummary(realtimeDevices.rows);
+  const realtimeDevices = devices.length ? await getDeviceRealtime(session, devices) : { batches: [], rows: [], skippedTypeIds: [], selectedTypeId: null, pendingTypeIds: [], rateLimited: false, nextAllowedAt: null };
+  const bess = batterySummary(devices, realtimeDevices.rows);
   const inverterPower = inverterPowerByStation(devices, realtimeDevices.rows);
   const stationMetrics = selectedPlants.map((plant) => {
     const code = plantCode(plant);
@@ -475,8 +558,12 @@ async function groupedDetail(session, requestedCodes, collectTime) {
     installedCapacityKw: sum(stationMetrics.map((item) => item.installedCapacityKw)),
     status: worstStatus(stationMetrics.map((item) => item.status)),
     batterySoc: bess.batterySoc,
+    batterySoh: bess.batterySoh,
     chargePowerKw: bess.chargePowerKw,
     dischargePowerKw: bess.dischargePowerKw,
+    chargeTodayKwh: bess.chargeTodayKwh,
+    dischargeTodayKwh: bess.dischargeTodayKwh,
+    bessDeviceCount: bess.devices.length,
     deviceCount: devices.length,
     alarmCount: activeAlarms.length,
   };
@@ -486,8 +573,15 @@ async function groupedDetail(session, requestedCodes, collectTime) {
     providerStationIds: codes,
     plants: stationMetrics,
     aggregate,
+    bessDevices: bess.devices,
     devices,
     deviceRealtime: realtimeDevices.rows,
+    realtimeRequest: {
+      fetchedTypeId: realtimeDevices.selectedTypeId,
+      pendingTypeIds: realtimeDevices.pendingTypeIds,
+      rateLimited: realtimeDevices.rateLimited,
+      nextAllowedAt: realtimeDevices.nextAllowedAt,
+    },
     skippedGenericRealtimeDeviceTypes: realtimeDevices.skippedTypeIds,
     alarms: activeAlarms,
     history,
@@ -496,7 +590,7 @@ async function groupedDetail(session, requestedCodes, collectTime) {
       { path: "/getStationRealKpi", ok: real.ok, cached: Boolean(real.cached), stale: Boolean(real.stale), error: real.ok ? (real.sourceError || "") : real.error },
       { path: "/getDevList", ok: devList.ok, error: devList.ok ? "" : devList.error },
       { path: "/getAlarmList", ok: alarms.ok, error: alarms.ok ? "" : alarms.error },
-      ...realtimeDevices.batches.map((item) => ({ path: item.path, ok: item.ok, error: item.ok ? "" : item.error })),
+      ...realtimeDevices.batches.map((item) => ({ path: item.path, devTypeId: item.devTypeId, ok: item.ok, error: item.ok ? "" : item.error, failCode: item.failCode ?? null })),
       ...history.coverage,
     ],
   };
