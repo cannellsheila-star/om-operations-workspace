@@ -9,6 +9,8 @@ An initial web implementation for managing solar-system records, operational tic
 - Ticket workroom with a dedicated email address, work log, files/photos and quote/PM controls
 - Monthly preventive-maintenance planner and prepared email package
 - Workflow rules that describe the email and record-keeping triggers
+- Deye Cloud monitoring connector
+- Huawei FusionSolar Northbound connector using `FUSIONSOLAR_USERNAME` and `FUSIONSOLAR_SYSTEM_CODE`
 
 ## Deploying
 
@@ -16,4 +18,4 @@ This is a dependency-free static application. Import the repository into Vercel 
 
 ## Next implementation phase
 
-Connect authentication, a database, a document store, monitoring feeds and the transactional email service. The visible workflow and data fields are already structured for those integrations.
+Connect authentication, a database, a document store, additional monitoring feeds and the transactional email service. The visible workflow and data fields are already structured for those integrations.
