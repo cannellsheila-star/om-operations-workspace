@@ -33,17 +33,17 @@
       return `<button class="ticket-row" data-action="open-ticket" data-id="${ticket.id}">
         <span class="ticket-number">${ticket.id.slice(-4)}</span>
         <span><span class="card-title">${ticket.issue}</span><span class="card-meta">${ticket.id} · ${system?.name || "System needs linking"} · ${ticket.source}</span></span>
-        <span>${tag(ticket.status)}<span class="card-meta" style="display:block;margin-top:5px;">${ticket.type}</span></span>
+        <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}</span>
         ${tag(ticket.concern)}
         <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${ticket.opened}</span>
       </button>`;
     }).join("");
     appView.innerHTML = `
-      <p class="subtitle">Every action is a ticket. The source tells you whether it came from monitoring, maintenance, an on-site issue or restorative work.</p>
+      <p class="subtitle">Every action is a ticket. “Picked up from” records how it was identified.</p>
       <div class="filters">${filters.map((filter) => `<button class="filter ${state.ticketFilter === filter ? "active" : ""}" data-filter="${filter}">${filter}</button>`).join("")}</div>
       <div class="section-header"><h2>Tickets</h2><span class="muted">Click a ticket to open its workroom</span></div>
       <div class="ticket-list">${rows || `<section class="surface" style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0;border:0;">
-        <div><p class="eyebrow">WORKSPACE READY</p><h3 style="margin:5px 0 7px;">No open tickets</h3><p class="muted" style="margin:0;max-width:660px;">Create a ticket for monitoring, maintenance, on-site issues or restorative work. It opens the full workroom with a log, attachments, dedicated email and PM routing.</p></div>
+        <div><p class="eyebrow">WORKSPACE READY</p><h3 style="margin:5px 0 7px;">No open tickets</h3><p class="muted" style="margin:0;max-width:660px;">Create a ticket from monitoring, maintenance, an on-site issue or asset review. It opens the full workroom with a log, attachments, dedicated email and PM routing.</p></div>
         <button class="button button-primary" data-action="new-ticket">Create ticket</button>
       </section>`}</div>
     `;
