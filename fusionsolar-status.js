@@ -1,9 +1,5 @@
 (() => {
   const baseRenderMonitoring = window.renderMonitoring;
-  const COOLDOWN_KEY = "fusionsolar-20400-cooldown-until";
-  const COOLDOWN_MS = 30 * 60 * 1000;
-  const AUTO_RECHECK_MS = 10 * 60 * 1000;
-  const fusionState = { status: "idle", data: null, message: "", checkedAt: null, promise: null };
 
   const esc = (value) => String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -12,43 +8,13 @@
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
 
-  function cooldownUntil() {
-    const value = Number(localStorage.getItem(COOLDOWN_KEY) || 0);
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  function cooldownRemainingMs() {
-    return Math.max(0, cooldownUntil() - Date.now());
-  }
-
-  function setCooldown() {
-    localStorage.setItem(COOLDOWN_KEY, String(Date.now() + COOLDOWN_MS));
-  }
-
-  function clearExpiredCooldown() {
-    if (cooldownUntil() && cooldownRemainingMs() <= 0) localStorage.removeItem(COOLDOWN_KEY);
-  }
-
-  function formatRemaining(ms) {
-    const totalMinutes = Math.max(1, Math.ceil(ms / 60000));
-    return `${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
-  }
-
   function mappedSites() {
     if (!Array.isArray(window.systems)) return [];
     return window.systems.filter((system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length);
   }
 
-  function lastCheckedAgeMs() {
-    const checked = fusionState.checkedAt ? Date.parse(fusionState.checkedAt) : NaN;
-    return Number.isFinite(checked) ? Math.max(0, Date.now() - checked) : Infinity;
-  }
-
-  function shouldAutoCheck() {
-    clearExpiredCooldown();
-    if (cooldownRemainingMs() > 0 || fusionState.promise) return false;
-    if (fusionState.status === "idle") return true;
-    return lastCheckedAgeMs() >= AUTO_RECHECK_MS;
+  function sharedFusion() {
+    return window.fusionSolarMonitoring || { status: "loading", data: null, message: "" };
   }
 
   function installStyles() {
@@ -62,47 +28,40 @@
       .fusion-dot{width:10px;height:10px;border-radius:50%;background:#9ca3af;box-shadow:0 0 0 3px rgba(156,163,175,.15)}
       .fusion-dot.ok{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
       .fusion-dot.bad{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.15)}
-      .fusion-dot.loading,.fusion-dot.cooldown{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
+      .fusion-dot.loading{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
       .fusion-meta{font-size:12px;opacity:.72;margin-top:4px}
       .fusion-plants{display:flex;gap:8px;flex-wrap:wrap}
       .fusion-plant{font-size:12px;border:1px solid var(--line,#d8dee8);border-radius:999px;padding:5px 8px;background:#fff}
       .fusion-error{font-size:12px;padding:9px 10px;border:1px solid rgba(220,38,38,.35);border-radius:7px;background:rgba(220,38,38,.06)}
-      .fusion-cooldown{font-size:12px;padding:9px 10px;border:1px solid rgba(217,119,6,.35);border-radius:7px;background:rgba(217,119,6,.06)}
     `;
     document.head.appendChild(style);
   }
 
   function cardHtml() {
-    clearExpiredCooldown();
-    const plants = Array.isArray(fusionState.data?.systems) ? fusionState.data.systems : [];
+    const fusion = sharedFusion();
+    const plants = Array.isArray(fusion.data?.systems) ? fusion.data.systems : [];
     const sites = mappedSites();
-    const remaining = cooldownRemainingMs();
-    const checked = fusionState.checkedAt
-      ? new Date(fusionState.checkedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
+    const checked = fusion.data?.fetchedAt
+      ? new Date(fusion.data.fetchedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
       : "Checking now";
 
     let dot = "loading";
     let label = "Connecting…";
-    let detail = "Checking FusionSolar SG5 automatically.";
+    let detail = "FusionSolar SG5 is being checked automatically as Monitoring loads.";
     let body = "";
 
-    if (remaining > 0) {
-      dot = "cooldown";
-      label = "Login cooldown";
-      detail = `Huawei returned code 20400. Automatic checking is paused for ${formatRemaining(remaining)} to avoid keeping the Northbound account locked.`;
-      body = `<div class="fusion-cooldown">Connection checking will resume automatically when the cooldown expires.</div>`;
-    } else if (fusionState.status === "ready") {
+    if (fusion.status === "ready") {
       dot = "ok";
       label = "Connected";
       detail = `${plants.length} FusionSolar plant${plants.length === 1 ? "" : "s"} connected and mapped into ${sites.length} workspace site${sites.length === 1 ? "" : "s"}.`;
       if (sites.length) {
         body = `<div class="fusion-plants">${sites.map((site) => `<span class="fusion-plant">${esc(site.name)} · ${site.fusionSolarPlants.length} plant${site.fusionSolarPlants.length === 1 ? "" : "s"}</span>`).join("")}</div>`;
       }
-    } else if (fusionState.status === "error") {
+    } else if (fusion.status === "error") {
       dot = "bad";
       label = "Connection failed";
-      detail = "Automatic FusionSolar check failed. The exact response is shown below.";
-      body = `<div class="fusion-error">${esc(fusionState.message || "FusionSolar connection failed.")}</div>`;
+      detail = "The automatic FusionSolar request failed.";
+      body = `<div class="fusion-error">${esc(fusion.message || "FusionSolar connection failed.")}</div>`;
     }
 
     return `<section class="surface fusion-status" id="fusion-status-card">
@@ -121,74 +80,27 @@
     if (typeof state === "undefined" || state.view !== "monitoring") return;
     const appView = document.getElementById("app-view");
     if (!appView) return;
-    document.getElementById("fusion-status-card")?.remove();
-    appView.insertAdjacentHTML("afterbegin", cardHtml());
-  }
-
-  async function testConnection() {
-    clearExpiredCooldown();
-    if (cooldownRemainingMs() > 0) {
-      injectPanel();
-      return null;
+    const html = cardHtml();
+    const existing = document.getElementById("fusion-status-card");
+    if (existing) {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html;
+      const next = wrapper.firstElementChild;
+      if (next && existing.outerHTML !== next.outerHTML) existing.replaceWith(next);
+      return;
     }
-    if (fusionState.promise) return fusionState.promise;
-
-    fusionState.status = "loading";
-    fusionState.message = "";
-    injectPanel();
-
-    fusionState.promise = (async () => {
-      try {
-        const response = await fetch("/api/fusionsolar-sg5", {
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || payload.configured === false || payload.connected === false) {
-          const error = new Error(payload.message || `FusionSolar returned HTTP ${response.status}.`);
-          error.failCode = payload.failCode ?? null;
-          throw error;
-        }
-        localStorage.removeItem(COOLDOWN_KEY);
-        fusionState.data = payload;
-        fusionState.status = "ready";
-        fusionState.message = payload.message || "FusionSolar connected.";
-      } catch (error) {
-        fusionState.data = null;
-        fusionState.status = "error";
-        fusionState.message = error?.message || "FusionSolar connection failed.";
-        if (Number(error?.failCode) === 20400 || /code\s*20400/i.test(fusionState.message)) setCooldown();
-      } finally {
-        fusionState.checkedAt = new Date().toISOString();
-        fusionState.promise = null;
-        injectPanel();
-      }
-      return fusionState.data;
-    })();
-
-    return fusionState.promise;
-  }
-
-  function runAutomaticCheck() {
-    if (typeof state === "undefined" || state.view !== "monitoring") return;
-    if (!shouldAutoCheck()) return;
-    fusionState.status = "loading";
-    injectPanel();
-    setTimeout(() => testConnection(), 0);
+    appView.insertAdjacentHTML("afterbegin", html);
   }
 
   if (typeof baseRenderMonitoring === "function") {
-    window.renderMonitoring = function renderMonitoringWithFusionSolar(...args) {
+    window.renderMonitoring = function renderMonitoringWithFusionSolarStatus(...args) {
       const result = baseRenderMonitoring.apply(this, args);
       injectPanel();
-      runAutomaticCheck();
       return result;
     };
   }
 
   setInterval(() => {
-    if (typeof state === "undefined" || state.view !== "monitoring") return;
-    if (cooldownUntil()) injectPanel();
-    runAutomaticCheck();
-  }, 60000);
+    if (typeof state !== "undefined" && state.view === "monitoring") injectPanel();
+  }, 1500);
 })();
