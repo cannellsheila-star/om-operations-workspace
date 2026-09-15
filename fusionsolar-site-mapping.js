@@ -4,8 +4,8 @@
   const fusionMappings = {
     "SYS-002": ["SBADAM"],
     "SYS-005": ["Penflex"],
+    "SYS-006": ["Riverstone Mall Room 1", "Riverstone Mall Room 2", "Riverstone Mall Room 3", "Riverstone Mall Room 4", "Riverstone Mall BESS"],
     "SYS-008": ["Borbet SA Plant 1 PV", "Borbet SA BESS and Plant 2", "Borbet SA"],
-    "SYS-020": ["Riverstone Mall Room 1", "Riverstone Mall Room 2", "Riverstone Mall Room 3", "Riverstone Mall Room 4", "Riverstone Mall BESS"],
     "SYS-021": ["amanzi heights"],
     "SYS-022": ["libertas mews"],
     "SYS-023": ["AR Illovo 2"],
@@ -13,6 +13,39 @@
     "SYS-025": ["sandy lane"],
     "SYS-026": ["SUMMIT"],
   };
+
+  let changed = false;
+
+  // SYS-006 is the original 2.23 MW / 4 MWh Meyerton Mall asset and is Riverstone.
+  // A later remediation import created SYS-020 as a duplicate. Merge everything back
+  // into the original asset so Monitoring, tickets and maintenance all use one site.
+  const riverstone = systems.find((system) => system.id === "SYS-006");
+  if (riverstone) {
+    if (riverstone.name !== "Riverstone") { riverstone.name = "Riverstone"; changed = true; }
+    if (riverstone.offtaker !== "Riverstone") { riverstone.offtaker = "Riverstone"; changed = true; }
+    if (!String(riverstone.platform || "").includes("FusionSolar")) {
+      riverstone.platform = riverstone.platform ? `${riverstone.platform}/FusionSolar` : "FusionSolar";
+      changed = true;
+    }
+  }
+
+  tickets.forEach((ticket) => {
+    if (ticket.system === "SYS-020") {
+      ticket.system = "SYS-006";
+      changed = true;
+    }
+  });
+  maintenance.forEach((item) => {
+    if (item.system === "SYS-020") {
+      item.system = "SYS-006";
+      changed = true;
+    }
+  });
+  const duplicateRiverstoneIndex = systems.findIndex((system) => system.id === "SYS-020");
+  if (duplicateRiverstoneIndex !== -1) {
+    systems.splice(duplicateRiverstoneIndex, 1);
+    changed = true;
+  }
 
   const legacyAr = systems.find((system) => system.id === "SYS-007");
   const arBase = {
@@ -58,8 +91,6 @@
     { id: "SYS-026", name: "Alley Roads Summit", offtaker: "Summit" },
   ];
 
-  let changed = false;
-
   const legacyIndex = systems.findIndex((system) => system.id === "SYS-007");
   if (legacyIndex !== -1) {
     systems.splice(legacyIndex, 1);
@@ -94,12 +125,13 @@
     }
   });
 
-  // Remove any obsolete user override for the deleted aggregate AR record.
   try {
     const overrideKey = "om-system-user-overrides-v1";
     const overrides = JSON.parse(localStorage.getItem(overrideKey) || "{}");
-    if (overrides && typeof overrides === "object" && overrides["SYS-007"]) {
-      delete overrides["SYS-007"];
+    if (overrides && typeof overrides === "object") {
+      if (overrides["SYS-007"]) delete overrides["SYS-007"];
+      if (overrides["SYS-020"]) delete overrides["SYS-020"];
+      overrides["SYS-006"] = { ...(overrides["SYS-006"] || {}), name: "Riverstone", offtaker: "Riverstone" };
       localStorage.setItem(overrideKey, JSON.stringify(overrides));
     }
   } catch {}
