@@ -69,6 +69,16 @@
         "No supplier quote was provided for the Workshop scope. Request a new itemised quotation before approval."
       ],
       files: [], emailHistory: [], quoteSummary: "No quote received. Obtain a new itemised quotation before approval.", emailRouting: "Not active. Do not send to this address until the Microsoft 365 or inbound-mail routing is configured."
+    },
+    {
+      id: "TKT-2026-0004", type: "Operational issue", system: "SYS-005", source: "On-site inspection", issue: "11 kV shutdown and electrical isolation incident", concern: "Critical", found: "4 September 2026", opened: "15 September 2026", status: "Open", pm: false, approver: "", owner: "Technoserve Medium Voltage",
+      work: [
+        "An electrical fault occurred during an attempted earth on the Eskom incomer on 4 September 2026. Upstream protection operated; the formal root-cause investigation remains open.",
+        "Penflex is operating islanded while the Eskom path is unavailable: PV and BESS supply the site during the day, with a 650 kVA generator as backup and for night supply.",
+        "Technoserve Medium Voltage is replacing the RM AirSet and affected 11 kV cables and VT terminations, followed by electrical testing, commissioning and restoration.",
+        "Next: add investigation evidence, rectification test results, commissioning evidence and the final restoration status."
+      ],
+      files: [{ name: "SN Electrical Technical Incident Report - SNIR001.pdf", url: "/documents/tickets/Penflex_Electrical_Shutdown_Incident_Report.pdf" }], emailHistory: [], emailRouting: "Not active. Do not send to this address until the Microsoft 365 or inbound-mail routing is configured."
     }
   ];
 
