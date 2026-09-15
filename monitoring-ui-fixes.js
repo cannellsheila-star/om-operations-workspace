@@ -196,3 +196,11 @@
   installStyles();
   schedule();
 })();
+
+(() => {
+  if (document.querySelector('script[data-monitoring-workspace="true"]')) return;
+  const script = document.createElement("script");
+  script.src = "monitoring-workspace.js";
+  script.dataset.monitoringWorkspace = "true";
+  document.body.appendChild(script);
+})();
