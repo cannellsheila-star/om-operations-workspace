@@ -528,3 +528,58 @@ modalContent.addEventListener("submit", (event) => {
 });
 
 renderSystemRegister();
+
+
+
+// Asset-name correction: retained IDs preserve linked tickets and maintenance history.
+(() => {
+  let changed = false;
+  const updateSystem = (id, patch) => {
+    const record = systems.find((system) => system.id === id);
+    if (!record) return;
+    Object.entries(patch).forEach(([key, value]) => {
+      if (record[key] !== value) {
+        record[key] = value;
+        changed = true;
+      }
+    });
+  };
+  const addSystem = (record) => {
+    if (!systems.some((system) => system.id === record.id)) {
+      systems.push(importedSystem(record));
+      changed = true;
+    }
+  };
+
+  updateSystem("SYS-002", { name: "Smuts Boer Agri Dam", offtaker: "Smuts Boer Agri Dam", systemCount: 1 });
+  updateSystem("SYS-003", { name: "Smuts Boer Agri Olyvendal", offtaker: "Smuts Boer Agri Olyvendal" });
+
+  const sleepoverShared = {
+    epc: "Coalition Africa", contractor: "Coalition Africa", offtaker: "Sleepover",
+    contactName: "Sheldon Clements",
+    contact: "sheldon.clements@sleepover.travel and theunis.bothma@sleepover.travel",
+    platform: "Deye Cloud/Augos", cod: "28 February 2026",
+    nextPm: "30 December 2026", lastPm: "1 July 2026", systemCount: 1
+  };
+
+  updateSystem("SYS-011", {
+    ...sleepoverShared, name: "Sleepover Lanseria", kwp: 64.9, kwh: 122.88,
+    updates: ["Imported from asset register", "Site record corrected from the former combined Sleepover entry."]
+  });
+  updateSystem("SYS-012", {
+    ...sleepoverShared, name: "Sleepover Phabeni", kwp: 106.2, kwh: 61.44,
+    ppaRate: "", ppaAnnualIncrease: "", ppaIncreaseDate: "", ppaTenor: null,
+    eassRate: "", eassAnnualIncrease: "", eassIncreaseDate: "", eassTenor: null,
+    updates: ["Imported from asset register", "Site separated from the former combined Sleepover entry; capacity follows the Coalition Africa Phabeni proposal."]
+  });
+  addSystem({
+    ...sleepoverShared, id: "SYS-018", name: "Sleepover Kruger", kwp: 106.2, kwh: 245.76,
+    updates: ["Imported from asset register", "Site separated from the former combined Sleepover entry; capacity follows the Coalition Africa Kruger Gate proposal."]
+  });
+  addSystem({
+    ...sleepoverShared, id: "SYS-019", name: "Sleepover Orpen", kwp: 106.2, kwh: 245.76,
+    updates: ["Imported from asset register", "Site separated from the former combined Sleepover entry; capacity follows the Coalition Africa Orpen Gate proposal."]
+  });
+
+  if (changed) saveWorkspace();
+})();
