@@ -7,7 +7,19 @@ const stationId = (station) => String(first(station, ["stationId", "station_id",
 const stationName = (station) => String(first(station, ["stationName", "station_name", "name", "plantName"]) || "");
 
 function configuredAccounts() {
-  if (!process.env.DEYE_CLOUD_ACCOUNTS) return [];
+  if (!process.env.DEYE_CLOUD_ACCOUNTS) {
+    if (!process.env.DEYE_CLOUD_APP_ID && !process.env.DEYE_CLOUD_EMAIL) return [];
+    return [{
+      label: process.env.DEYE_CLOUD_LABEL || "Deye Cloud",
+      appId: process.env.DEYE_CLOUD_APP_ID,
+      appSecret: process.env.DEYE_CLOUD_APP_SECRET,
+      email: process.env.DEYE_CLOUD_EMAIL,
+      companyId: process.env.DEYE_CLOUD_COMPANY_ID,
+      password: process.env.DEYE_CLOUD_PASSWORD,
+      passwordHash: process.env.DEYE_CLOUD_PASSWORD_SHA256,
+      baseUrl: process.env.DEYE_CLOUD_BASE_URL,
+    }];
+  }
   try {
     const parsed = JSON.parse(process.env.DEYE_CLOUD_ACCOUNTS);
     const list = Array.isArray(parsed) ? parsed : parsed.accounts;
