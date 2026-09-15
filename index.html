@@ -58,8 +58,23 @@
     <script src="restore-workflows.js"></script>
     <script src="automation-client.js"></script>
     <script src="monitoring-enhanced.js"></script>
-    <script src="monitoring-analytics.js"></script>
-    <script src="monitoring-ui-fixes.js"></script>
+    <script>
+      // monitoring-workspace owns its own explicit render cycle. Suppress only its
+      // legacy global DOM observer so its own renders cannot trigger an endless
+      // render -> mutation -> render feedback loop.
+      window.__omNativeMutationObserver = window.MutationObserver;
+      window.MutationObserver = class MonitoringWorkspaceNoopObserver {
+        constructor() {}
+        observe() {}
+        disconnect() {}
+        takeRecords() { return []; }
+      };
+    </script>
+    <script src="monitoring-workspace.js"></script>
+    <script>
+      window.MutationObserver = window.__omNativeMutationObserver;
+      delete window.__omNativeMutationObserver;
+    </script>
     <script>
       (() => {
         const decimalSelector = 'input[name="kwp"], input[name="kwh"]';
