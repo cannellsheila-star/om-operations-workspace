@@ -2,7 +2,13 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-site-v3-20260915";
+const VERSION = "fusionsolar-site-v4-session-20260915";
+const SESSION_TTL_MS = 25 * 60 * 1000;
+const SESSION_RENEW_MARGIN_MS = 60 * 1000;
+
+let cachedSession = null;
+let cachedSessionExpiresAt = 0;
+let loginPromise = null;
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const numberOrNull = (value) => {
@@ -84,18 +90,39 @@ function cookieValue(cookie, name) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-async function login() {
+function invalidateSession() {
+  cachedSession = null;
+  cachedSessionExpiresAt = 0;
+}
+
+async function login(force = false) {
   const userName = clean(process.env.FUSIONSOLAR_USERNAME);
   const systemCode = clean(process.env.FUSIONSOLAR_SYSTEM_CODE);
   if (!userName || !systemCode) return null;
-  const result = await requestJson("/login", { userName, systemCode });
-  validate(result, "/login");
-  const cookie = cookieHeader(result.headers);
-  const token = headerValue(result.headers, "xsrf-token")
-    || headerValue(result.headers, "x-xsrf-token")
-    || cookieValue(cookie, "XSRF-TOKEN");
-  if (!token) throw new Error("FusionSolar login succeeded but no XSRF token was returned.");
-  return { token, cookie };
+
+  if (!force && cachedSession && Date.now() < (cachedSessionExpiresAt - SESSION_RENEW_MARGIN_MS)) {
+    return cachedSession;
+  }
+  if (loginPromise) return loginPromise;
+
+  loginPromise = (async () => {
+    const result = await requestJson("/login", { userName, systemCode });
+    validate(result, "/login");
+    const cookie = cookieHeader(result.headers);
+    const token = headerValue(result.headers, "xsrf-token")
+      || headerValue(result.headers, "x-xsrf-token")
+      || cookieValue(cookie, "XSRF-TOKEN");
+    if (!token) throw new Error("FusionSolar login succeeded but no XSRF token was returned.");
+    cachedSession = { token, cookie };
+    cachedSessionExpiresAt = Date.now() + SESSION_TTL_MS;
+    return cachedSession;
+  })();
+
+  try {
+    return await loginPromise;
+  } finally {
+    loginPromise = null;
+  }
 }
 
 async function call(session, path, body = {}) {
@@ -110,6 +137,19 @@ async function safeCall(session, path, body = {}) {
   try {
     return { ok: true, path, payload: await call(session, path, body) };
   } catch (error) {
+    const code = Number(error?.failCode);
+    if ([305, 306, 307].includes(code)) {
+      try {
+        invalidateSession();
+        const fresh = await login(true);
+        if (fresh) {
+          Object.assign(session, fresh);
+          return { ok: true, path, payload: await call(session, path, body), sessionRefreshed: true };
+        }
+      } catch (refreshError) {
+        return { ok: false, path, error: String(refreshError.message || refreshError), failCode: refreshError.failCode ?? null };
+      }
+    }
     return { ok: false, path, error: String(error.message || error), failCode: error.failCode ?? null };
   }
 }
@@ -414,6 +454,8 @@ module.exports = async function handler(req, res) {
         provider: "FusionSolar",
         connectorVersion: VERSION,
         region: process.env.VERCEL_REGION || null,
+        sessionReuse: true,
+        sessionExpiresAt: cachedSessionExpiresAt ? new Date(cachedSessionExpiresAt).toISOString() : null,
         fetchedAt: new Date().toISOString(),
         detail,
         message: `${detail.plants.length} FusionSolar plant${detail.plants.length === 1 ? "" : "s"} loaded for this workspace site.`,
@@ -427,6 +469,8 @@ module.exports = async function handler(req, res) {
       provider: "FusionSolar",
       connectorVersion: VERSION,
       region: process.env.VERCEL_REGION || null,
+      sessionReuse: true,
+      sessionExpiresAt: cachedSessionExpiresAt ? new Date(cachedSessionExpiresAt).toISOString() : null,
       fetchedAt: new Date().toISOString(),
       ...data,
       message: `${data.systems.length} FusionSolar plant${data.systems.length === 1 ? "" : "s"} loaded.`,
