@@ -2,10 +2,14 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-site-v2-20260915";
+const VERSION = "fusionsolar-site-v3-20260915";
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
-const numberOrNull = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const numberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
 const asArray = (...values) => values.find(Array.isArray) || [];
 
 function requestJson(path, body = {}, headers = {}) {
@@ -236,12 +240,27 @@ async function getDeviceRealtime(session, devices) {
   return { batches, rows: flattenDeviceRealtime(batches) };
 }
 
+function inverterPowerByStation(devices, realtimeRows) {
+  const byId = new Map(devices.map((device) => [String(device.id), device]));
+  const totals = new Map();
+  const seen = new Set();
+  realtimeRows.forEach((row) => {
+    const device = byId.get(String(row?.devId ?? row?.id ?? ""));
+    if (!device || device.typeId !== 1 || !device.stationCode) return;
+    const power = metricValue(metricMap(row), ["active_power", "real_power", "pv_power"]);
+    if (power === null) return;
+    totals.set(device.stationCode, (totals.get(device.stationCode) || 0) + power);
+    seen.add(device.stationCode);
+  });
+  return { totals, seen };
+}
+
 function alarmRows(payload) {
   return asArray(payload?.data, payload?.data?.list);
 }
 
 function sum(values) {
-  const nums = values.filter((value) => numberOrNull(value) !== null).map(Number);
+  const nums = values.map(numberOrNull).filter((value) => value !== null);
   return nums.length ? nums.reduce((total, value) => total + value, 0) : null;
 }
 
@@ -305,9 +324,11 @@ async function groupedDetail(session, requestedCodes, collectTime) {
   const devices = devList.ok ? asArray(devList.payload?.data, devList.payload?.data?.list).map(deviceShell) : [];
   const realtimeDevices = devices.length ? await getDeviceRealtime(session, devices) : { batches: [], rows: [] };
   const bess = batterySummary(realtimeDevices.rows);
+  const inverterPower = inverterPowerByStation(devices, realtimeDevices.rows);
   const stationMetrics = selectedPlants.map((plant) => {
     const code = plantCode(plant);
     const metrics = normaliseStationMetrics(real.ok ? real.payload : {}, code);
+    if (metrics.powerKw === null && inverterPower.seen.has(code)) metrics.powerKw = inverterPower.totals.get(code) ?? 0;
     return {
       providerStationId: code,
       name: plantName(plant),
