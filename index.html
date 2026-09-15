@@ -61,6 +61,17 @@
     <script>
       (() => {
         const decimalSelector = 'input[name="kwp"], input[name="kwh"]';
+        const systemOverrideKey = "om-system-user-overrides-v1";
+        const readSystemOverrides = () => {
+          try {
+            const parsed = JSON.parse(localStorage.getItem(systemOverrideKey) || "{}");
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+          } catch {
+            return {};
+          }
+        };
+        const writeSystemOverrides = (overrides) => localStorage.setItem(systemOverrideKey, JSON.stringify(overrides));
+
         const prepareSystemForm = (root = document) => {
           if (root.matches?.(decimalSelector)) root.step = "any";
           root.querySelectorAll?.(decimalSelector).forEach((input) => { input.step = "any"; });
@@ -89,20 +100,31 @@
             showToast("Enter a system name before saving.");
             return true;
           }
+          const persistedPatch = {};
           for (const [key, raw] of data.entries()) {
             if (key === "id") continue;
             if (numericFields.has(key)) {
               const value = String(raw).trim().replace(",", ".");
-              system[key] = value === "" ? null : Number(value);
+              const parsed = value === "" ? null : Number(value);
+              system[key] = parsed;
+              persistedPatch[key] = parsed;
             } else {
-              system[key] = String(raw).trim();
+              const value = String(raw).trim();
+              system[key] = value;
+              persistedPatch[key] = value;
             }
           }
           system.systemCount = system.systemCount || 1;
+          persistedPatch.systemCount = system.systemCount;
           system.monitoring = system.platform ? `${system.platform} · connection pending` : "Monitoring platform not recorded";
           system.alert = system.alert || "No monitoring exception recorded.";
           system.documents = system.documents || [];
           system.updates = ["System record updated today", ...(system.updates || [])];
+
+          const overrides = readSystemOverrides();
+          overrides[editedId] = { ...(overrides[editedId] || {}), ...persistedPatch };
+          writeSystemOverrides(overrides);
+
           saveWorkspace();
           closeModal();
           renderSystemRecord(system.id);
@@ -126,9 +148,30 @@
           saveEditedSystem(form);
         }, true);
 
-        const kruger = systems.find((system) => system.id === "SYS-018");
-        if (kruger && kruger.name !== "Sleepover Kruger Gate") {
-          kruger.name = "Sleepover Kruger Gate";
+        const overrides = readSystemOverrides();
+        let overrideStoreChanged = false;
+        if (!overrides["SYS-012"]?.name) {
+          overrides["SYS-012"] = { ...(overrides["SYS-012"] || {}), name: "Sleepover Phabeni Gate" };
+          overrideStoreChanged = true;
+        }
+        if (!overrides["SYS-018"]?.name) {
+          overrides["SYS-018"] = { ...(overrides["SYS-018"] || {}), name: "Sleepover Kruger Gate" };
+          overrideStoreChanged = true;
+        }
+        if (overrideStoreChanged) writeSystemOverrides(overrides);
+
+        let workspaceChanged = false;
+        Object.entries(overrides).forEach(([id, patch]) => {
+          const system = systems.find((item) => item.id === id);
+          if (!system || !patch || typeof patch !== "object") return;
+          Object.entries(patch).forEach(([key, value]) => {
+            if (system[key] !== value) {
+              system[key] = value;
+              workspaceChanged = true;
+            }
+          });
+        });
+        if (workspaceChanged) {
           saveWorkspace();
           if (state.view === "overview") renderSystemRegister();
         }
