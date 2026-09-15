@@ -26,9 +26,14 @@ function configuredAccounts() {
     if (!Array.isArray(list)) throw new Error();
     return list.filter((account) => account && typeof account === "object").map((account) => ({
       ...account,
-      appSecret: account.appSecret || process.env.DEYE_CLOUD_APP_SECRET,
-      password: account.password || process.env.DEYE_CLOUD_PASSWORD,
-      passwordHash: account.passwordHash || process.env.DEYE_CLOUD_PASSWORD_SHA256,
+      appId: process.env.DEYE_CLOUD_APP_ID || account.appId,
+      appSecret: process.env.DEYE_CLOUD_APP_SECRET || account.appSecret,
+      email: process.env.DEYE_CLOUD_EMAIL || account.email,
+      companyId: process.env.DEYE_CLOUD_COMPANY_ID || account.companyId,
+      password: process.env.DEYE_CLOUD_PASSWORD || account.password,
+      passwordHash: process.env.DEYE_CLOUD_PASSWORD_SHA256 || account.passwordHash,
+      baseUrl: process.env.DEYE_CLOUD_BASE_URL || account.baseUrl,
+      label: process.env.DEYE_CLOUD_LABEL || account.label,
     }));
   } catch {
     throw new Error("DEYE_CLOUD_ACCOUNTS must be a valid JSON list.");
@@ -89,7 +94,7 @@ async function readAccount(account) {
   if (!account.appId || !account.appSecret || !account.email) throw new Error("Deye Cloud account settings are incomplete.");
   const base = String(account.baseUrl || DEYE_BASE_URL).replace(/\/+$/, "");
   const auth = { appSecret: account.appSecret, email: account.email, password: passwordFor(account) };
-  if (account.companyId !== undefined && account.companyId !== null) auth.companyId = account.companyId;
+  if (account.companyId !== undefined && account.companyId !== null && account.companyId !== "") auth.companyId = account.companyId;
   const tokenResult = await callDeye(base + "/account/token?appId=" + encodeURIComponent(account.appId), auth);
   const token = tokenResult.accessToken || tokenResult.data?.accessToken;
   if (!token) throw new Error("Deye Cloud did not return an access token.");
