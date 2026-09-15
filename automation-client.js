@@ -102,3 +102,38 @@
     }
   };
 })();
+
+
+// Map remediation work to the corrected Smuts Boer Agri asset records.
+(() => {
+  let changed = false;
+  const legacyDamIndex = systems.findIndex((system) => system.id === "SYS-016");
+  if (legacyDamIndex !== -1) {
+    systems.splice(legacyDamIndex, 1);
+    changed = true;
+  }
+  tickets.forEach((ticket) => {
+    if (ticket.system === "SYS-016") {
+      ticket.system = "SYS-002";
+      changed = true;
+    }
+  });
+  maintenance.forEach((item) => {
+    if (item.system === "SYS-016") {
+      item.system = "SYS-002";
+      changed = true;
+    }
+  });
+  const workshop = systems.find((system) => system.id === "SYS-017");
+  if (workshop) {
+    if (workshop.name !== "Smuts Boer Agri Workshop") {
+      workshop.name = "Smuts Boer Agri Workshop";
+      changed = true;
+    }
+    if (workshop.offtaker !== "Smuts Boer Agri Workshop") {
+      workshop.offtaker = "Smuts Boer Agri Workshop";
+      changed = true;
+    }
+  }
+  if (changed) saveWorkspace();
+})();
