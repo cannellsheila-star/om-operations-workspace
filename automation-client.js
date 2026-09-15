@@ -78,7 +78,7 @@
         "Technoserve Medium Voltage is replacing the RM AirSet and affected 11 kV cables and VT terminations, followed by electrical testing, commissioning and restoration.",
         "Next: add investigation evidence, rectification test results, commissioning evidence and the final restoration status."
       ],
-      files: [{ name: "SN Electrical Technical Incident Report - SNIR001.pdf", url: "/documents/tickets/Penflex_Electrical_Shutdown_Incident_Report.pdf" }], emailHistory: [], emailRouting: "Not active. Do not send to this address until the Microsoft 365 or inbound-mail routing is configured."
+      files: [{ name: "SN Electrical Technical Incident Report — SNIR001 (view)", url: "/documents/tickets/Penflex_SN_Electrical_Incident_Report.html" }], emailHistory: [], emailRouting: "Not active. Do not send to this address until the Microsoft 365 or inbound-mail routing is configured."
     }
   ];
 
