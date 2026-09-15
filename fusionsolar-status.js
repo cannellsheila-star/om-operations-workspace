@@ -37,13 +37,13 @@
 
     let dot = "";
     let label = "Not checked";
-    let detail = "Northbound credentials are stored server-side. Test them directly against FusionSolar SG5.";
+    let detail = "Northbound credentials are stored server-side. Click Test connection to try the FusionSolar SG5 login.";
     let body = "";
 
     if (fusionState.status === "loading") {
       dot = "loading";
       label = "Connecting…";
-      detail = "Calling sg5.fusionsolar.huawei.com using the Northbound credentials stored in Vercel.";
+      detail = "Calling FusionSolar SG5 using the Northbound credentials stored in Vercel.";
     } else if (fusionState.status === "ready") {
       dot = "ok";
       label = "Connected";
@@ -117,7 +117,6 @@
     window.renderMonitoring = function renderMonitoringWithFusionSolar(...args) {
       const result = baseRenderMonitoring.apply(this, args);
       injectPanel();
-      if (fusionState.status === "idle") testConnection();
       return result;
     };
   }
