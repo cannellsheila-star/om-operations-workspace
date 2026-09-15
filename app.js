@@ -297,7 +297,7 @@ function renderTicketWorkroom(id) {
         </section>
         <section class="surface">
           <div class="surface-title"><h3>Attachments, photos & documents</h3></div>
-          <div class="upload-area"><input id="file-input" type="file" multiple aria-label="Add files or photos" /><span class="muted">Files are held with this ticket record.</span><div id="file-list">${ticket.files.map((file) => `<span class="file-chip">${file}</span>`).join("")}</div></div>
+          <div class="upload-area"><input id="file-input" type="file" multiple aria-label="Add files or photos" /><span class="muted">Files are held with this ticket record.</span><div id="file-list">${ticket.files.map((file) => typeof file === "string" ? `<span class="file-chip">${file}</span>` : `<a class="file-chip" href="${file.url}" target="_blank" rel="noreferrer">${file.name} ↗</a>`).join("")}</div></div>
         </section>
       </div>
       <div>
