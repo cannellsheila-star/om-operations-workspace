@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 
+// Deye Cloud credentials are provided at runtime by Vercel environment variables.
+
 const DEYE_BASE_URL = "https://eu1-developer.deyecloud.com/v1.0";
 const numberValue = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 const firstValue = (object, keys) => keys.map((key) => object?.[key]).find((value) => value !== undefined && value !== null && value !== "");
