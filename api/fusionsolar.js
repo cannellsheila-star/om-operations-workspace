@@ -2,9 +2,10 @@ const https = require("https");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-site-v4-session-20260915";
+const VERSION = "fusionsolar-site-v5-throttle-safe-20260915";
 const SESSION_TTL_MS = 25 * 60 * 1000;
 const SESSION_RENEW_MARGIN_MS = 60 * 1000;
+const GENERIC_REALTIME_DEVICE_TYPES = new Set([1, 17]);
 
 let cachedSession = null;
 let cachedSessionExpiresAt = 0;
@@ -262,8 +263,13 @@ function batterySummary(rows) {
 
 async function getDeviceRealtime(session, devices) {
   const groups = new Map();
+  const skippedTypeIds = new Set();
   devices.forEach((device) => {
     if (!device.id || !device.typeId) return;
+    if (!GENERIC_REALTIME_DEVICE_TYPES.has(device.typeId)) {
+      skippedTypeIds.add(device.typeId);
+      return;
+    }
     if (!groups.has(device.typeId)) groups.set(device.typeId, []);
     groups.get(device.typeId).push(device);
   });
@@ -277,7 +283,11 @@ async function getDeviceRealtime(session, devices) {
       }));
     }
   }
-  return { batches, rows: flattenDeviceRealtime(batches) };
+  return {
+    batches,
+    rows: flattenDeviceRealtime(batches),
+    skippedTypeIds: [...skippedTypeIds].sort((a, b) => a - b),
+  };
 }
 
 function inverterPowerByStation(devices, realtimeRows) {
@@ -362,7 +372,7 @@ async function groupedDetail(session, requestedCodes, collectTime) {
   ]);
 
   const devices = devList.ok ? asArray(devList.payload?.data, devList.payload?.data?.list).map(deviceShell) : [];
-  const realtimeDevices = devices.length ? await getDeviceRealtime(session, devices) : { batches: [], rows: [] };
+  const realtimeDevices = devices.length ? await getDeviceRealtime(session, devices) : { batches: [], rows: [], skippedTypeIds: [] };
   const bess = batterySummary(realtimeDevices.rows);
   const inverterPower = inverterPowerByStation(devices, realtimeDevices.rows);
   const stationMetrics = selectedPlants.map((plant) => {
@@ -414,6 +424,7 @@ async function groupedDetail(session, requestedCodes, collectTime) {
     aggregate,
     devices,
     deviceRealtime: realtimeDevices.rows,
+    skippedGenericRealtimeDeviceTypes: realtimeDevices.skippedTypeIds,
     alarms: activeAlarms,
     history,
     apiCoverage: [
