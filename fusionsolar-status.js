@@ -87,12 +87,12 @@
 
     fusionState.promise = (async () => {
       try {
-        const response = await fetch("/api/fusionsolar", {
+        const response = await fetch("/api/fusionsolar-sg5", {
           cache: "no-store",
           headers: { Accept: "application/json" },
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok || payload.configured === false) {
+        if (!response.ok || payload.configured === false || payload.connected === false) {
           throw new Error(payload.message || `FusionSolar returned HTTP ${response.status}.`);
         }
         fusionState.data = payload;
