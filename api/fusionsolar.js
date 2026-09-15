@@ -1,4 +1,9 @@
+const https = require("https");
+const net = require("net");
+
 const DEFAULT_BASE_URL = "https://sg5.fusionsolar.huawei.com/thirdData";
+const DNS_CACHE_MS = 5 * 60 * 1000;
+const dnsCache = new Map();
 
 const clean = (value) => String(value ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
 const numeric = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
@@ -25,11 +30,16 @@ function validate(payload, path) {
   return payload;
 }
 
+function headerValue(headers, name) {
+  const value = headers?.[String(name).toLowerCase()];
+  if (Array.isArray(value)) return value[0] || "";
+  return clean(value);
+}
+
 function responseCookies(headers) {
-  const raw = typeof headers.getSetCookie === "function"
-    ? headers.getSetCookie()
-    : [headers.get("set-cookie")].filter(Boolean);
-  return raw.map((item) => String(item).split(";")[0]).filter(Boolean).join("; ");
+  const raw = headers?.["set-cookie"];
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return values.map((item) => String(item).split(";")[0]).filter(Boolean).join("; ");
 }
 
 function cookieValue(cookieHeader, name) {
@@ -37,22 +47,137 @@ function cookieValue(cookieHeader, name) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-async function post(url, body, headers = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json", Accept: "application/json, */*", ...headers },
-      body: JSON.stringify(body || {}),
+function requestJsonByIp({ ip, servername, path, method = "GET", headers = {}, body = null, timeout = 12000 }) {
+  return new Promise((resolve, reject) => {
+    const request = https.request({
+      host: ip,
+      port: 443,
+      servername,
+      method,
+      path,
+      rejectUnauthorized: true,
+      headers: { Host: servername, ...headers },
+      family: 4,
+    }, (response) => {
+      let raw = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => { raw += chunk; });
+      response.on("end", () => {
+        let payload = {};
+        try { payload = raw ? JSON.parse(raw) : {}; } catch {
+          const error = new Error(`Non-JSON response from ${servername} (HTTP ${response.statusCode || 0}).`);
+          error.httpStatus = response.statusCode || 0;
+          error.responsePreview = raw.slice(0, 240);
+          reject(error);
+          return;
+        }
+        resolve({ status: response.statusCode || 0, headers: response.headers || {}, payload });
+      });
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(`FusionSolar HTTP ${response.status} at ${url}.`);
-    return { response, payload };
-  } finally {
-    clearTimeout(timer);
+
+    request.setTimeout(timeout, () => request.destroy(Object.assign(new Error(`Connection to ${servername} timed out.`), { code: "ETIMEDOUT" })));
+    request.on("error", reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+async function dohQuery(ip, servername, path) {
+  const result = await requestJsonByIp({
+    ip,
+    servername,
+    path,
+    headers: { Accept: "application/dns-json" },
+    timeout: 8000,
+  });
+  if (result.status < 200 || result.status >= 300) throw new Error(`DNS-over-HTTPS returned HTTP ${result.status}.`);
+  return result.payload;
+}
+
+async function resolveA(hostname) {
+  if (net.isIP(hostname) === 4) return [hostname];
+  const cached = dnsCache.get(hostname);
+  if (cached && Date.now() - cached.at < DNS_CACHE_MS) return cached.ips;
+
+  const attempts = [
+    () => dohQuery("1.1.1.1", "cloudflare-dns.com", `/dns-query?name=${encodeURIComponent(hostname)}&type=A`),
+    () => dohQuery("8.8.8.8", "dns.google", `/resolve?name=${encodeURIComponent(hostname)}&type=A`),
+  ];
+  const errors = [];
+
+  for (const attempt of attempts) {
+    try {
+      const payload = await attempt();
+      const answers = Array.isArray(payload?.Answer) ? payload.Answer : [];
+      const ips = [...new Set(answers.filter((answer) => Number(answer.type) === 1 && net.isIP(String(answer.data)) === 4).map((answer) => String(answer.data)))];
+      if (ips.length) {
+        dnsCache.set(hostname, { at: Date.now(), ips });
+        return ips;
+      }
+      errors.push(`No A record returned (DNS status ${payload?.Status ?? "unknown"})`);
+    } catch (error) {
+      errors.push(`${error.code || error.name || "DNS"}: ${error.message || error}`);
+    }
   }
+
+  const error = new Error(`Could not resolve ${hostname} through DNS-over-HTTPS. ${errors.join(" | ")}`);
+  error.code = "EDOHLOOKUP";
+  throw error;
+}
+
+function networkMessage(error, hostname) {
+  const code = error?.code || error?.cause?.code || "NETWORK";
+  const errno = error?.errno || error?.cause?.errno || "";
+  const detail = error?.message || error?.cause?.message || String(error);
+  return `FusionSolar network error (${code}${errno !== "" ? ` · ${errno}` : ""} · ${hostname}): ${detail}`;
+}
+
+async function post(url, body, headers = {}) {
+  const target = new URL(url);
+  if (target.protocol !== "https:") throw new Error("FusionSolar API URL must use HTTPS.");
+  const payloadBody = JSON.stringify(body || {});
+  const requestHeaders = {
+    "Content-Type": "application/json",
+    Accept: "application/json, */*",
+    "Content-Length": Buffer.byteLength(payloadBody),
+    "User-Agent": "BlueEnergy-OandM/1.0",
+    ...headers,
+  };
+
+  let ips;
+  try {
+    ips = await resolveA(target.hostname);
+  } catch (error) {
+    throw new Error(networkMessage(error, target.hostname));
+  }
+
+  const failures = [];
+  for (const ip of ips.slice(0, 4)) {
+    try {
+      const result = await requestJsonByIp({
+        ip,
+        servername: target.hostname,
+        path: `${target.pathname}${target.search}`,
+        method: "POST",
+        headers: requestHeaders,
+        body: payloadBody,
+        timeout: 20000,
+      });
+      if (result.status < 200 || result.status >= 300) {
+        const message = result.payload?.message || result.payload?.msg || `HTTP ${result.status}`;
+        const error = new Error(`FusionSolar HTTP ${result.status}: ${message}`);
+        error.httpStatus = result.status;
+        throw error;
+      }
+      return result;
+    } catch (error) {
+      failures.push(`${ip}: ${error.code || error.name || "ERR"} ${error.message || error}`);
+    }
+  }
+
+  const error = new Error(`All resolved SG5 addresses failed. ${failures.join(" | ")}`);
+  error.code = "EALLHOSTSFAILED";
+  throw new Error(networkMessage(error, target.hostname));
 }
 
 async function login(settings) {
@@ -61,9 +186,9 @@ async function login(settings) {
     systemCode: settings.systemCode,
   });
   validate(result.payload, "/login");
-  const cookie = responseCookies(result.response.headers);
-  const token = clean(result.response.headers.get("xsrf-token"))
-    || clean(result.response.headers.get("x-xsrf-token"))
+  const cookie = responseCookies(result.headers);
+  const token = headerValue(result.headers, "xsrf-token")
+    || headerValue(result.headers, "x-xsrf-token")
     || cookieValue(cookie, "XSRF-TOKEN");
   if (!token) throw new Error("FusionSolar login succeeded but no XSRF token was returned.");
   return { baseUrl: settings.baseUrl, token, cookie };
