@@ -43,9 +43,11 @@
       .fs-plant-name{display:flex;align-items:center;gap:9px;min-width:0}.fs-swatch{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
       .fs-bar-track{height:8px;background:#eef0f4;border-radius:999px;overflow:hidden}.fs-bar{height:100%;border-radius:999px;min-width:2px}
       .fs-device-list{display:grid;gap:7px}.fs-device-row{display:grid;grid-template-columns:minmax(180px,1.5fr) 150px 130px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #eceef2;font-size:12px}
+      .fs-bess-grid{display:grid;gap:8px}.fs-bess-row{display:grid;grid-template-columns:minmax(210px,1.5fr) repeat(5,minmax(105px,1fr));gap:12px;align-items:center;padding:12px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;font-size:12px}.fs-bess-row strong{font-size:13px}.fs-bess-flow{font-weight:700}
       .fs-badge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#f3f4f6;font-size:11px}.fs-badge.ok{background:#ecfdf3;color:#166534}.fs-badge.warn{background:#fff7ed;color:#9a3412}.fs-badge.bad{background:#fef2f2;color:#991b1b}
       .fs-empty{padding:18px;border:1px dashed #d8dbe3;border-radius:4px;color:#6b7280;background:#fafafa}
-      @media(max-width:1000px){.fs-kpis{grid-template-columns:repeat(3,minmax(120px,1fr))}.fs-plant-row{grid-template-columns:1fr 1.4fr 90px 90px}.fs-plant-row>:last-child{display:none}}
+      .fs-api-note{margin:0 0 12px;color:#6b7280;font-size:12px}
+      @media(max-width:1000px){.fs-kpis{grid-template-columns:repeat(3,minmax(120px,1fr))}.fs-plant-row{grid-template-columns:1fr 1.4fr 90px 90px}.fs-plant-row>:last-child{display:none}.fs-bess-row{grid-template-columns:1fr 1fr 1fr}.fs-bess-row>:nth-child(n+4){display:none}}
     `;
     document.head.appendChild(style);
   }
@@ -193,9 +195,33 @@
     return `hsl(${hue} 62% 46%)`;
   }
 
+  function selectedBessDevices(detail, selectedCode) {
+    const devices = Array.isArray(detail?.bessDevices) ? detail.bessDevices : [];
+    if (!selectedCode || selectedCode === "all") return devices;
+    return devices.filter((device) => String(device.stationCode || "") === String(selectedCode));
+  }
+
+  function bessAggregate(devices) {
+    const socs = devices.map((item) => num(item.soc)).filter((value) => value !== null);
+    const sohs = devices.map((item) => num(item.soh)).filter((value) => value !== null);
+    const signed = devices.map((item) => num(item.signedPowerKw)).filter((value) => value !== null);
+    const charged = devices.map((item) => num(item.chargeTodayKwh)).filter((value) => value !== null);
+    const discharged = devices.map((item) => num(item.dischargeTodayKwh)).filter((value) => value !== null);
+    return {
+      batterySoc: socs.length ? socs.reduce((total, value) => total + value, 0) / socs.length : null,
+      batterySoh: sohs.length ? sohs.reduce((total, value) => total + value, 0) / sohs.length : null,
+      chargePowerKw: signed.length ? signed.filter((value) => value > 0).reduce((total, value) => total + value, 0) : null,
+      dischargePowerKw: signed.length ? signed.filter((value) => value < 0).reduce((total, value) => total + Math.abs(value), 0) : null,
+      chargeTodayKwh: charged.length ? charged.reduce((total, value) => total + value, 0) : null,
+      dischargeTodayKwh: discharged.length ? discharged.reduce((total, value) => total + value, 0) : null,
+    };
+  }
+
   function selectedMetrics(detail, selectedCode) {
     if (!selectedCode || selectedCode === "all") return detail.aggregate || {};
-    return detail.plants.find((plant) => plant.providerStationId === selectedCode) || {};
+    const plant = detail.plants.find((item) => item.providerStationId === selectedCode) || {};
+    const bess = selectedBessDevices(detail, selectedCode);
+    return bess.length ? { ...plant, ...bessAggregate(bess) } : plant;
   }
 
   function selectedDevices(detail, selectedCode) {
@@ -204,14 +230,26 @@
     return devices.filter((device) => String(device.stationCode || "") === String(selectedCode));
   }
 
+  function bessFlow(device) {
+    const signed = num(device?.signedPowerKw);
+    if (signed === null) return "—";
+    if (signed > 0.001) return `Charging ${fmt(signed, "kW")}`;
+    if (signed < -0.001) return `Discharging ${fmt(Math.abs(signed), "kW")}`;
+    return "Idle 0 kW";
+  }
+
   function detailHtml(system, detail) {
     installStyles();
     const selected = fusion.selectedPlant.get(system.id) || "all";
     const metrics = selectedMetrics(detail, selected);
     const visiblePlants = selected === "all" ? detail.plants : detail.plants.filter((plant) => plant.providerStationId === selected);
     const devices = selectedDevices(detail, selected);
+    const bessDevices = selectedBessDevices(detail, selected);
     const maxPower = Math.max(0.001, ...visiblePlants.map((plant) => Math.max(0, num(plant.powerKw) || 0)));
     const selectionLabel = selected === "all" ? `${detail.plants.length} plants combined` : (visiblePlants[0]?.name || "Selected plant");
+    const essInventoryExists = devices.some((device) => Number(device.typeId) === 41);
+    const liveEssMissing = essInventoryExists && !bessDevices.length;
+    const nextAllowed = detail.realtimeRequest?.nextAllowedAt ? new Date(detail.realtimeRequest.nextAllowedAt).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "";
 
     return `
       <div class="fs-site-head">
@@ -228,10 +266,17 @@
         <div class="fs-kpi"><span>PV power now</span><strong>${fmt(metrics.powerKw, "kW")}</strong><small>${selected === "all" ? "Combined" : "Selected plant"}</small></div>
         <div class="fs-kpi"><span>Generation today</span><strong>${fmt(metrics.energyTodayKwh, "kWh")}</strong><small>Daily energy</small></div>
         <div class="fs-kpi"><span>Installed PV</span><strong>${fmt(metrics.installedCapacityKw, "kWp")}</strong><small>FusionSolar capacity</small></div>
-        <div class="fs-kpi"><span>BESS SOC</span><strong>${selected === "all" ? fmt(metrics.batterySoc, "%", 1) : "—"}</strong><small>${selected === "all" ? "Across returned BESS devices" : "Plant BESS detail next"}</small></div>
-        <div class="fs-kpi"><span>Charge</span><strong>${selected === "all" ? fmt(metrics.chargePowerKw, "kW") : "—"}</strong><small>Live BESS charge</small></div>
-        <div class="fs-kpi"><span>Discharge</span><strong>${selected === "all" ? fmt(metrics.dischargePowerKw, "kW") : "—"}</strong><small>Live BESS discharge</small></div>
+        <div class="fs-kpi"><span>BESS SOC</span><strong>${fmt(metrics.batterySoc, "%", 1)}</strong><small>Huawei ESS type 41</small></div>
+        <div class="fs-kpi"><span>Charge</span><strong>${fmt(metrics.chargePowerKw, "kW")}</strong><small>Positive ESS power</small></div>
+        <div class="fs-kpi"><span>Discharge</span><strong>${fmt(metrics.dischargePowerKw, "kW")}</strong><small>Negative ESS power</small></div>
       </div>
+      ${liveEssMissing ? `<p class="fs-api-note">Huawei returned the ESS inventory, but the live type 41 KPI call is waiting for the Northbound rate-limit window${nextAllowed ? ` · next safe refresh after ${esc(nextAllowed)}` : ""}. No BESS value is being guessed.</p>` : ""}
+      ${bessDevices.length ? `<section class="surface monitor-section">
+        <div class="surface-title"><h3>BESS / ESS</h3><span class="muted">Live Huawei C&I / utility ESS data</span></div>
+        <div class="fs-bess-grid">
+          ${bessDevices.map((device) => `<div class="fs-bess-row"><span><strong>${esc(device.name || "ESS")}</strong><br><small>${esc(device.model || device.sn || "Huawei ESS")}</small></span><span><small>SOC</small><br><strong>${fmt(device.soc, "%", 1)}</strong></span><span><small>Power</small><br><span class="fs-bess-flow">${esc(bessFlow(device))}</span></span><span><small>Charged today</small><br><strong>${fmt(device.chargeTodayKwh, "kWh")}</strong></span><span><small>Discharged today</small><br><strong>${fmt(device.dischargeTodayKwh, "kWh")}</strong></span><span><small>SOH</small><br><strong>${fmt(device.soh, "%", 1)}</strong></span></div>`).join("")}
+        </div>
+      </section>` : ""}
       <section class="surface monitor-section">
         <div class="surface-title"><h3>Plant contribution</h3><span class="muted">${selected === "all" ? "Combined site with colour split" : "Selected FusionSolar plant"}</span></div>
         <div class="fs-plant-grid">
@@ -246,7 +291,7 @@
       <section class="surface monitor-section">
         <div class="surface-title"><h3>Devices</h3><span class="muted">${devices.length} device${devices.length === 1 ? "" : "s"} in ${esc(selectionLabel)}</span></div>
         <div class="fs-device-list">
-          ${devices.map((device) => `<div class="fs-device-row"><strong>${esc(device.name || device.typeName || "Device")}</strong><span>${esc(device.typeName || "Type not returned")}</span><span>${esc(device.model || "Model not returned")}</span><span>SN ${esc(device.sn || "—")}</span></div>`).join("") || `<div class="fs-empty">No devices returned for this selection.</div>`}
+          ${devices.map((device) => `<div class="fs-device-row"><strong>${esc(device.name || device.typeName || "Device")}</strong><span>${esc(device.typeName || `Type ${device.typeId || "—"}`)}</span><span>${esc(device.model || "Model not returned")}</span><span>SN ${esc(device.sn || "—")}</span></div>`).join("") || `<div class="fs-empty">No devices returned for this selection.</div>`}
         </div>
       </section>
       <section class="surface monitor-section">
