@@ -286,7 +286,7 @@ function renderTicketWorkroom(id) {
   appView.innerHTML = `
     <div class="record-head">
       <div><p class="eyebrow">${ticket.id} · ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.type} · ${ticket.source} · Found ${ticket.found}</p></div>
-      <div>${tag(ticket.status)} ${tag(ticket.concern)}</div>
+      <div>${tag(ticket.status)} ${tag(ticket.concern)} <button class="button button-muted" data-action="edit-ticket" data-id="${ticket.id}">Edit ticket</button></div>
     </div>
     <div class="workroom-grid">
       <div>
@@ -392,6 +392,23 @@ function openModal(kind, context = {}) {
     modalTitle.textContent = "Create ticket";
     modalContent.innerHTML = `<form class="modal-body" id="ticket-form"><div class="form-grid"><div class="field"><label>Ticket type</label><select name="type"><option>Operational issue</option><option>Maintenance finding</option><option>Restorative work</option></select></div><div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}">${system.name}</option>`).join("")}</select></div><div class="field"><label>Source / how it was picked up</label><select name="source"><option>Monitoring alert</option><option>PM visit</option><option>On-site inspection</option><option>Asset review</option><option>Asset review completed</option><option>Reported by off-taker</option><option>Other</option></select></div><div class="field"><label>Concern</label><select name="concern"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option><option>Planned</option></select></div><div class="field full"><label>Issue / work item</label><input name="issue" required placeholder="Describe the issue or work item" /></div><div class="field full"><label>Work log / next action</label><textarea name="work" required placeholder="What is known, what has been done and what needs to happen next?"></textarea></div></div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Create ticket</button></div></form>`;
   }
+  if (kind === "edit-ticket") {
+    const ticket = context.ticket;
+    modalTitle.textContent = `Edit ${ticket.id}`;
+    modalContent.innerHTML = `<form class="modal-body" id="edit-ticket-form" data-ticket-id="${ticket.id}"><div class="form-grid">
+      <div class="field"><label>Ticket type</label><select name="type"><option ${ticket.type === "Operational issue" ? "selected" : ""}>Operational issue</option><option ${ticket.type === "Maintenance finding" ? "selected" : ""}>Maintenance finding</option><option ${ticket.type === "Restorative work" ? "selected" : ""}>Restorative work</option></select></div>
+      <div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}" ${ticket.system === system.id ? "selected" : ""}>${system.name}</option>`).join("")}</select></div>
+      <div class="field"><label>Source / how it was picked up</label><select name="source"><option ${ticket.source === "Monitoring alert" ? "selected" : ""}>Monitoring alert</option><option ${ticket.source === "PM visit" ? "selected" : ""}>PM visit</option><option ${ticket.source === "On-site inspection" ? "selected" : ""}>On-site inspection</option><option ${ticket.source === "Asset review" ? "selected" : ""}>Asset review</option><option ${ticket.source === "Asset review completed" ? "selected" : ""}>Asset review completed</option><option ${ticket.source === "Reported by off-taker" ? "selected" : ""}>Reported by off-taker</option><option ${ticket.source === "Other" ? "selected" : ""}>Other</option></select></div>
+      <div class="field"><label>Status</label><select name="status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticket.status === "Pending Quote" ? "selected" : ""}>Pending Quote</option><option ${ticket.status === "Quote Approval" ? "selected" : ""}>Quote Approval</option><option ${ticket.status === "Completed" ? "selected" : ""}>Completed</option></select></div>
+      <div class="field"><label>Concern</label><select name="concern"><option ${ticket.concern === "Critical" ? "selected" : ""}>Critical</option><option ${ticket.concern === "High" ? "selected" : ""}>High</option><option ${ticket.concern === "Medium" ? "selected" : ""}>Medium</option><option ${ticket.concern === "Low" ? "selected" : ""}>Low</option><option ${ticket.concern === "Planned" ? "selected" : ""}>Planned</option></select></div>
+      <div class="field"><label>Owner / contractor</label><input name="owner" value="${ticket.owner || ""}" /></div>
+      <div class="field"><label>Date identified</label><input name="found" value="${ticket.found || ""}" placeholder="e.g. 15 September 2026" /></div>
+      <div class="field"><label>Ticket opened date</label><input name="opened" value="${ticket.opened || ""}" placeholder="e.g. 15 September 2026" /></div>
+      <div class="field"><label>Quote approver</label><input name="approver" value="${ticket.approver || ""}" placeholder="Only required for quote approval" /></div>
+      <div class="field full"><label>Issue / work item</label><input name="issue" required value="${ticket.issue || ""}" /></div>
+      <div class="field full"><label>Add work-log update</label><textarea name="workUpdate" placeholder="Add what has changed, what has been done or what happens next. This is added to the existing work log."></textarea></div>
+    </div><div class="form-actions"><button class="button button-muted" type="button" data-close-modal>Cancel</button><button class="button button-primary" type="submit">Save ticket changes</button></div></form>`;
+  }
   if (kind === "email") {
     modalTitle.textContent = context.title || "Prepare email";
     modalContent.innerHTML = `<div class="modal-body"><div class="field"><label>To</label><input value="${context.to || ""}" /></div><div class="field" style="margin-top:14px;"><label>CC</label><input value="operations@blueenergyafrica.example" /></div><div class="field" style="margin-top:14px;"><label>Subject</label><input value="${context.subject || "O&M update"}" /></div><div class="field" style="margin-top:14px;"><label>Message</label><textarea>${context.body || ""}</textarea></div><p class="muted" style="margin:15px 0 0;">This first build prepares the correct message and record. Sending is connected in the transactional-email phase.</p><div class="form-actions"><button class="button button-muted" data-close-modal>Close</button><button class="button button-primary" data-action="queue-email">Queue for sending</button></div></div>`;
@@ -411,6 +428,7 @@ function onAction(action, id) {
   if (action === "view-monitoring") { state.monitoringSystem = id; renderMonitoring(); }
   if (action === "refresh-monitoring") refreshMonitoring();
   if (action === "open-ticket") renderTicketWorkroom(id);
+  if (action === "edit-ticket") { const ticket = getTicket(id || state.selectedTicket); if (ticket) openModal("edit-ticket", { ticket }); }
   if (action === "select-maintenance") { state.selectedMaintenance = id; renderMaintenance(); }
   if (action === "folder") { const system = getSystem(id || state.selectedSystem); if (system.folder && /^https?:\/\//i.test(system.folder)) window.open(system.folder, "_blank", "noopener"); else showToast("Add the SharePoint or OneDrive folder link in the system record."); }
   if (action === "monitoring") { const system = getSystem(id || state.selectedSystem); if (system.monitoringUrl && /^https?:\/\//i.test(system.monitoringUrl)) window.open(system.monitoringUrl, "_blank", "noopener"); else showToast("Add the monitoring portal link in the system record."); }
@@ -481,6 +499,27 @@ modalContent.addEventListener("submit", (event) => {
     closeModal();
     renderSystemRecord(nextSystem.id);
     showToast(editedId ? "System record updated." : "System added to the register.");
+    return;
+  }
+  if (event.target.id === "edit-ticket-form") {
+    const ticket = getTicket(event.target.dataset.ticketId);
+    if (!ticket) return;
+    ticket.type = String(form.get("type"));
+    ticket.system = String(form.get("system"));
+    ticket.source = String(form.get("source"));
+    ticket.status = String(form.get("status"));
+    ticket.concern = String(form.get("concern"));
+    ticket.owner = String(form.get("owner")).trim();
+    ticket.found = String(form.get("found")).trim();
+    ticket.opened = String(form.get("opened")).trim();
+    ticket.approver = String(form.get("approver")).trim();
+    ticket.issue = String(form.get("issue")).trim();
+    const update = String(form.get("workUpdate")).trim();
+    if (update) { ticket.work = Array.isArray(ticket.work) ? ticket.work : []; ticket.work.push(update); }
+    saveWorkspace();
+    closeModal();
+    renderTicketWorkroom(ticket.id);
+    showToast("Ticket updated.");
     return;
   }
   if (event.target.id !== "ticket-form") return;
