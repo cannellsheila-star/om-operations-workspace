@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SN Electrical Incident Report — Penflex</title>
+  <style>
+    :root { color-scheme: light; --ink:#102454; --muted:#51627f; --line:#d9e0ea; --blue:#1765b6; --wash:#f5f8fc; --amber:#a85a00; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--wash); color:var(--ink); font:15px/1.6 Arial, Helvetica, sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:42px 28px 64px; }
+    .masthead { border-left:5px solid var(--blue); padding:3px 0 4px 18px; margin-bottom:28px; }
+    .eyebrow { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+    h1 { margin:3px 0 0; font-size:30px; line-height:1.15; }
+    .subhead { margin:8px 0 0; color:var(--muted); }
+    .notice { background:#fff6e7; border:1px solid #f2d79f; color:#704000; padding:14px 16px; margin:0 0 24px; }
+    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:26px; }
+    .grid div { background:#fff; padding:14px; }
+    .grid span { display:block; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; }
+    .grid strong { display:block; margin-top:4px; font-size:14px; }
+    section { background:#fff; border:1px solid var(--line); padding:24px; margin-top:16px; }
+    h2 { margin:0 0 12px; font-size:18px; }
+    p { margin:0 0 12px; }
+    ul { margin:8px 0 0; padding-left:20px; }
+    li { margin:8px 0; }
+    .status { border-left:3px solid var(--amber); padding-left:14px; }
+    footer { color:var(--muted); font-size:12px; margin-top:22px; }
+    @media (max-width:680px) { main { padding:28px 16px 40px; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">Ticket attachment · Penflex</div>
+      <h1>SN Electrical Technical Incident Report</h1>
+      <p class="subhead">Reference SNIR001 · Penflex electrical shutdown and isolation incident</p>
+    </header>
+    <div class="notice"><strong>Investigation status:</strong> this incident report records the event and immediate findings. It does not assign root cause or fault responsibility; the formal investigation remains open.</div>
+    <div class="grid">
+      <div><span>Incident date</span><strong>04 September 2026</strong></div>
+      <div><span>Report reference</span><strong>SNIR001</strong></div>
+      <div><span>Report issued</span><strong>07 September 2026</strong></div>
+      <div><span>Ticket</span><strong>TKT-2026-0004</strong></div>
+    </div>
+    <section>
+      <h2>Incident record</h2>
+      <p>The reported works involved the PV plant, BESS, VT1 and Eskom incomer. During an attempted application of earth on the Eskom incomer, an electrical fault was suspected and the upstream Eskom protection operated.</p>
+      <p>SN Electrical recorded that it was not authorised to operate medium-voltage equipment. The site was placed into a controlled safe state while evidence and the sequence of events were investigated.</p>
+    </section>
+    <section>
+      <h2>Current operating position</h2>
+      <p>With the Eskom path unavailable, Penflex is operating islanded: PV and BESS support daytime operation and a 650 kVA generator provides backup and night supply.</p>
+    </section>
+    <section>
+      <h2>Rectification work under way</h2>
+      <ul>
+        <li>Replace the 24 kV Schneider RM AirSet / affected switching equipment.</li>
+        <li>Repair the BESS feeder cable and replace the cable between the VT and RM AirSet.</li>
+        <li>Reterminate the VT connection.</li>
+        <li>Complete phase-rotation, insulation-resistance, VLF, protection and functional testing before commissioning and restoration.</li>
+      </ul>
+    </section>
+    <section class="status">
+      <h2>Required ticket updates</h2>
+      <p>Add the investigation evidence, rectification test results, commissioning evidence and final restoration status to TKT-2026-0004 as they are completed.</p>
+    </section>
+    <footer>Browser-readable ticket copy of the SN Electrical incident record. Original report reference: SN Electrical Technical Incident Report, SNIR001.</footer>
+  </main>
+</body>
+</html>
