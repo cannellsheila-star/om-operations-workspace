@@ -69,6 +69,7 @@ const ticketEmail = (id) => `${id.toLowerCase()}@records.blueenergy.co.za`;
 const openTicketsForSystem = (id) => tickets.filter((ticket) => ticket.system === id && ticket.status !== "Completed");
 const statusTone = (status) => status === "Operational" || status === "Open" || status === "Completed" ? "green" : status === "Critical" || status === "Non-operational" ? "red" : status === "Quote Approval" ? "blue" : "amber";
 const tag = (value) => `<span class="tag tag-${statusTone(value)}">${value}</span>`;
+const ticketWorkflow = (ticket) => ticket.workflow || (["Pending Quote", "Quote Approval"].includes(ticket.status) ? ticket.status : "");
 
 function emailHistory(ticket) {
   const messages = Array.isArray(ticket.emailHistory) ? ticket.emailHistory : [];
@@ -269,7 +270,7 @@ function renderTickets() {
         <button class="ticket-row" data-action="open-ticket" data-id="${ticket.id}">
           <span class="ticket-number">${ticket.id.slice(-4)}</span>
           <span><span class="card-title">${ticket.issue}</span><span class="card-meta">${ticket.id} · ${system.name} · ${ticket.source}</span></span>
-          <span>${tag(ticket.status)}<span class="card-meta" style="display:block;margin-top:5px;">${ticket.type}</span></span>
+          <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}<span class="card-meta" style="display:block;margin-top:5px;">${ticket.type}</span></span>
           ${tag(ticket.concern)}
           <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${ticket.opened}</span>
         </button>`; }).join("")}
@@ -286,14 +287,14 @@ function renderTicketWorkroom(id) {
   appView.innerHTML = `
     <div class="record-head">
       <div><p class="eyebrow">${ticket.id} · ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.type} · ${ticket.source} · Found ${ticket.found}</p></div>
-      <div>${tag(ticket.status)} ${tag(ticket.concern)} <button class="button button-muted" data-action="edit-ticket" data-id="${ticket.id}">Edit ticket</button></div>
+      <div>${tag(ticket.status)} ${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""} ${tag(ticket.concern)} <button class="button button-muted" data-action="edit-ticket" data-id="${ticket.id}">Edit ticket</button></div>
     </div>
     <div class="workroom-grid">
       <div>
         <section class="surface">
           <div class="surface-title"><h3>Work log & next action</h3><span class="muted">Owner: ${ticket.owner}</span></div>
           <div class="timeline">${ticket.work.map((item, index) => `<div class="timeline-item"><span class="timeline-date">${index === 0 ? ticket.opened : `STEP ${index + 1}`}</span><span class="timeline-copy">${item}</span></div>`).join("")}</div>
-          <div class="monitor-alert" style="margin-top:18px;background:#e9f3ff;color:#164b7c;"><strong>NEXT</strong><span>${ticket.status === "Quote Approval" ? `Approval email is ready for ${ticket.approver}.` : `Keep the work log updated and move the ticket through the workflow.`}</span></div>
+          <div class="monitor-alert" style="margin-top:18px;background:#e9f3ff;color:#164b7c;"><strong>NEXT</strong><span>${ticketWorkflow(ticket) === "Quote Approval" ? `Approval email is ready for ${ticket.approver}.` : `Keep the work log updated and move the ticket through the workflow.`}</span></div>
         </section>
         <section class="surface">
           <div class="surface-title"><h3>Attachments, photos & documents</h3></div>
@@ -312,9 +313,9 @@ function renderTicketWorkroom(id) {
           <div class="surface-title"><h3>Routing controls</h3></div>
           <label class="checkbox-line"><input type="checkbox" id="pm-toggle" ${ticket.pm ? "checked" : ""} /> Include in next PM package</label>
           <p class="muted">When selected, this ticket travels with the next relevant maintenance package.</p>
-          <label class="checkbox-line"><input type="checkbox" id="approval-toggle" ${ticket.status === "Quote Approval" ? "checked" : ""} /> Quote approval needed</label>
+          <label class="checkbox-line"><input type="checkbox" id="approval-toggle" ${ticketWorkflow(ticket) === "Quote Approval" ? "checked" : ""} /> Quote approval needed</label>
           <p class="muted">Selected approver: <strong>${ticket.approver}</strong></p>
-          ${ticket.status === "Quote Approval" ? `<button class="button button-muted" data-action="quote-approved">Record approval</button>` : ""}
+          ${ticketWorkflow(ticket) === "Quote Approval" ? `<button class="button button-muted" data-action="quote-approved">Record approval</button>` : ""}
         </section>
       </div>
     </div>
@@ -399,7 +400,7 @@ function openModal(kind, context = {}) {
       <div class="field"><label>Ticket type</label><select name="type"><option ${ticket.type === "Operational issue" ? "selected" : ""}>Operational issue</option><option ${ticket.type === "Maintenance finding" ? "selected" : ""}>Maintenance finding</option><option ${ticket.type === "Restorative work" ? "selected" : ""}>Restorative work</option></select></div>
       <div class="field"><label>System</label><select name="system">${systems.map((system) => `<option value="${system.id}" ${ticket.system === system.id ? "selected" : ""}>${system.name}</option>`).join("")}</select></div>
       <div class="field"><label>Source / how it was picked up</label><select name="source"><option ${ticket.source === "Monitoring alert" ? "selected" : ""}>Monitoring alert</option><option ${ticket.source === "PM visit" ? "selected" : ""}>PM visit</option><option ${ticket.source === "On-site inspection" ? "selected" : ""}>On-site inspection</option><option ${ticket.source === "Asset review" ? "selected" : ""}>Asset review</option><option ${ticket.source === "Asset review completed" ? "selected" : ""}>Asset review completed</option><option ${ticket.source === "Reported by off-taker" ? "selected" : ""}>Reported by off-taker</option><option ${ticket.source === "Other" ? "selected" : ""}>Other</option></select></div>
-      <div class="field"><label>Status</label><select name="status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticket.status === "Pending Quote" ? "selected" : ""}>Pending Quote</option><option ${ticket.status === "Quote Approval" ? "selected" : ""}>Quote Approval</option><option ${ticket.status === "Completed" ? "selected" : ""}>Completed</option></select></div>
+      <div class="field"><label>Status</label><select name="status"><option ${ticket.status === "Open" ? "selected" : ""}>Open</option><option ${ticketWorkflow(ticket) === "Pending Quote" ? "selected" : ""}>Pending Quote</option><option ${ticketWorkflow(ticket) === "Quote Approval" ? "selected" : ""}>Quote Approval</option><option ${ticket.status === "Completed" ? "selected" : ""}>Completed</option></select></div>
       <div class="field"><label>Concern</label><select name="concern"><option ${ticket.concern === "Critical" ? "selected" : ""}>Critical</option><option ${ticket.concern === "High" ? "selected" : ""}>High</option><option ${ticket.concern === "Medium" ? "selected" : ""}>Medium</option><option ${ticket.concern === "Low" ? "selected" : ""}>Low</option><option ${ticket.concern === "Planned" ? "selected" : ""}>Planned</option></select></div>
       <div class="field"><label>Owner / contractor</label><input name="owner" value="${ticket.owner || ""}" /></div>
       <div class="field"><label>Date identified</label><input name="found" value="${ticket.found || ""}" placeholder="e.g. 15 September 2026" /></div>
@@ -507,7 +508,9 @@ modalContent.addEventListener("submit", (event) => {
     ticket.type = String(form.get("type"));
     ticket.system = String(form.get("system"));
     ticket.source = String(form.get("source"));
-    ticket.status = String(form.get("status"));
+    const selectedStage = String(form.get("status"));
+    ticket.status = selectedStage === "Completed" ? "Completed" : "Open";
+    ticket.workflow = ["Pending Quote", "Quote Approval"].includes(selectedStage) ? selectedStage : "";
     ticket.concern = String(form.get("concern"));
     ticket.owner = String(form.get("owner")).trim();
     ticket.found = String(form.get("found")).trim();
