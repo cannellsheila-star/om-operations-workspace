@@ -2,6 +2,7 @@
   const baseRenderMonitoring = window.renderMonitoring;
   const COOLDOWN_KEY = "fusionsolar-20400-cooldown-until";
   const COOLDOWN_MS = 30 * 60 * 1000;
+  const AUTO_RECHECK_MS = 10 * 60 * 1000;
   const fusionState = { status: "idle", data: null, message: "", checkedAt: null, promise: null };
 
   const esc = (value) => String(value ?? "")
@@ -38,6 +39,18 @@
     return window.systems.filter((system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length);
   }
 
+  function lastCheckedAgeMs() {
+    const checked = fusionState.checkedAt ? Date.parse(fusionState.checkedAt) : NaN;
+    return Number.isFinite(checked) ? Math.max(0, Date.now() - checked) : Infinity;
+  }
+
+  function shouldAutoCheck() {
+    clearExpiredCooldown();
+    if (cooldownRemainingMs() > 0 || fusionState.promise) return false;
+    if (fusionState.status === "idle") return true;
+    return lastCheckedAgeMs() >= AUTO_RECHECK_MS;
+  }
+
   function installStyles() {
     if (document.getElementById("fusion-status-style")) return;
     const style = document.createElement("style");
@@ -66,22 +79,18 @@
     const remaining = cooldownRemainingMs();
     const checked = fusionState.checkedAt
       ? new Date(fusionState.checkedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
-      : "Not checked yet";
+      : "Checking now";
 
-    let dot = "";
-    let label = "Not checked";
-    let detail = "Northbound credentials are stored server-side. Test them directly against FusionSolar SG5.";
+    let dot = "loading";
+    let label = "Connecting…";
+    let detail = "Checking FusionSolar SG5 automatically.";
     let body = "";
 
     if (remaining > 0) {
       dot = "cooldown";
       label = "Login cooldown";
-      detail = `Huawei returned code 20400. Testing is paused for ${formatRemaining(remaining)} to avoid keeping the Northbound account locked.`;
-      body = `<div class="fusion-cooldown">No further login attempts will be sent until the cooldown expires.</div>`;
-    } else if (fusionState.status === "loading") {
-      dot = "loading";
-      label = "Connecting…";
-      detail = "Calling sg5.fusionsolar.huawei.com using the Northbound credentials stored in Vercel.";
+      detail = `Huawei returned code 20400. Automatic checking is paused for ${formatRemaining(remaining)} to avoid keeping the Northbound account locked.`;
+      body = `<div class="fusion-cooldown">Connection checking will resume automatically when the cooldown expires.</div>`;
     } else if (fusionState.status === "ready") {
       dot = "ok";
       label = "Connected";
@@ -92,12 +101,9 @@
     } else if (fusionState.status === "error") {
       dot = "bad";
       label = "Connection failed";
-      detail = "Huawei returned an error. The exact response is shown below.";
+      detail = "Automatic FusionSolar check failed. The exact response is shown below.";
       body = `<div class="fusion-error">${esc(fusionState.message || "FusionSolar connection failed.")}</div>`;
     }
-
-    const disabled = fusionState.status === "loading" || remaining > 0;
-    const buttonText = remaining > 0 ? `Retry in ${formatRemaining(remaining)}` : fusionState.status === "loading" ? "Testing…" : "Test connection";
 
     return `<section class="surface fusion-status" id="fusion-status-card">
       <div class="fusion-status-head">
@@ -105,7 +111,6 @@
           <div class="fusion-status-title"><span class="fusion-dot ${dot}"></span><strong>FusionSolar SG5 · ${esc(label)}</strong></div>
           <div class="fusion-meta">${esc(detail)} · Last checked: ${esc(checked)}</div>
         </div>
-        <button type="button" class="button button-muted" id="fusionsolar-test-button" ${disabled ? "disabled" : ""}>${esc(buttonText)}</button>
       </div>
       ${body}
     </section>`;
@@ -120,13 +125,14 @@
     appView.insertAdjacentHTML("afterbegin", cardHtml());
   }
 
-  async function testConnection(force = false) {
+  async function testConnection() {
     clearExpiredCooldown();
     if (cooldownRemainingMs() > 0) {
       injectPanel();
       return null;
     }
-    if (fusionState.promise && !force) return fusionState.promise;
+    if (fusionState.promise) return fusionState.promise;
+
     fusionState.status = "loading";
     fusionState.message = "";
     injectPanel();
@@ -163,22 +169,26 @@
     return fusionState.promise;
   }
 
+  function runAutomaticCheck() {
+    if (typeof state === "undefined" || state.view !== "monitoring") return;
+    if (!shouldAutoCheck()) return;
+    fusionState.status = "loading";
+    injectPanel();
+    setTimeout(() => testConnection(), 0);
+  }
+
   if (typeof baseRenderMonitoring === "function") {
     window.renderMonitoring = function renderMonitoringWithFusionSolar(...args) {
       const result = baseRenderMonitoring.apply(this, args);
       injectPanel();
+      runAutomaticCheck();
       return result;
     };
   }
 
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest?.("#fusionsolar-test-button")) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    testConnection(true);
-  }, true);
-
   setInterval(() => {
+    if (typeof state === "undefined" || state.view !== "monitoring") return;
     if (cooldownUntil()) injectPanel();
+    runAutomaticCheck();
   }, 60000);
 })();
