@@ -1,13 +1,37 @@
 (() => {
   const baseRenderMonitoring = window.renderMonitoring;
+  const COOLDOWN_KEY = "fusionsolar-20400-cooldown-until";
+  const COOLDOWN_MS = 30 * 60 * 1000;
   const fusionState = { status: "idle", data: null, message: "", checkedAt: null, promise: null };
 
   const esc = (value) => String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
+  function cooldownUntil() {
+    const value = Number(localStorage.getItem(COOLDOWN_KEY) || 0);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function cooldownRemainingMs() {
+    return Math.max(0, cooldownUntil() - Date.now());
+  }
+
+  function setCooldown() {
+    localStorage.setItem(COOLDOWN_KEY, String(Date.now() + COOLDOWN_MS));
+  }
+
+  function clearExpiredCooldown() {
+    if (cooldownUntil() && cooldownRemainingMs() <= 0) localStorage.removeItem(COOLDOWN_KEY);
+  }
+
+  function formatRemaining(ms) {
+    const totalMinutes = Math.max(1, Math.ceil(ms / 60000));
+    return `${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
+  }
 
   function installStyles() {
     if (document.getElementById("fusion-status-style")) return;
@@ -21,29 +45,38 @@
       .fusion-dot.ok{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
       .fusion-dot.bad{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.15)}
       .fusion-dot.loading{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
+      .fusion-dot.cooldown{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
       .fusion-meta{font-size:12px;opacity:.72;margin-top:4px}
       .fusion-plants{display:flex;gap:8px;flex-wrap:wrap}
       .fusion-plant{font-size:12px;border:1px solid var(--line,#d8dee8);border-radius:999px;padding:5px 8px}
       .fusion-error{font-size:12px;padding:9px 10px;border:1px solid rgba(220,38,38,.35);border-radius:7px;background:rgba(220,38,38,.06)}
+      .fusion-cooldown{font-size:12px;padding:9px 10px;border:1px solid rgba(217,119,6,.35);border-radius:7px;background:rgba(217,119,6,.06)}
     `;
     document.head.appendChild(style);
   }
 
   function cardHtml() {
+    clearExpiredCooldown();
     const systems = Array.isArray(fusionState.data?.systems) ? fusionState.data.systems : [];
+    const remaining = cooldownRemainingMs();
     const checked = fusionState.checkedAt
       ? new Date(fusionState.checkedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })
       : "Not checked yet";
 
     let dot = "";
     let label = "Not checked";
-    let detail = "Northbound credentials are stored server-side. Click Test connection to try the FusionSolar SG5 login.";
+    let detail = "Northbound credentials are stored server-side. Test them directly against FusionSolar SG5.";
     let body = "";
 
-    if (fusionState.status === "loading") {
+    if (remaining > 0) {
+      dot = "cooldown";
+      label = "Login cooldown";
+      detail = `Huawei returned code 20400. Testing is paused for ${formatRemaining(remaining)} to avoid keeping the Northbound account locked.`;
+      body = `<div class="fusion-cooldown">No further login attempts will be sent until the cooldown expires.</div>`;
+    } else if (fusionState.status === "loading") {
       dot = "loading";
       label = "Connecting…";
-      detail = "Calling FusionSolar SG5 using the Northbound credentials stored in Vercel.";
+      detail = "Calling sg5.fusionsolar.huawei.com using the Northbound credentials stored in Vercel.";
     } else if (fusionState.status === "ready") {
       dot = "ok";
       label = "Connected";
@@ -58,13 +91,16 @@
       body = `<div class="fusion-error">${esc(fusionState.message || "FusionSolar connection failed.")}</div>`;
     }
 
+    const disabled = fusionState.status === "loading" || remaining > 0;
+    const buttonText = remaining > 0 ? `Retry in ${formatRemaining(remaining)}` : fusionState.status === "loading" ? "Testing…" : "Test connection";
+
     return `<section class="surface fusion-status" id="fusion-status-card">
       <div class="fusion-status-head">
         <div>
           <div class="fusion-status-title"><span class="fusion-dot ${dot}"></span><strong>FusionSolar SG5 · ${esc(label)}</strong></div>
           <div class="fusion-meta">${esc(detail)} · Last checked: ${esc(checked)}</div>
         </div>
-        <button type="button" class="button button-muted" id="fusionsolar-test-button" ${fusionState.status === "loading" ? "disabled" : ""}>${fusionState.status === "loading" ? "Testing…" : "Test connection"}</button>
+        <button type="button" class="button button-muted" id="fusionsolar-test-button" ${disabled ? "disabled" : ""}>${esc(buttonText)}</button>
       </div>
       ${body}
     </section>`;
@@ -80,6 +116,11 @@
   }
 
   async function testConnection(force = false) {
+    clearExpiredCooldown();
+    if (cooldownRemainingMs() > 0) {
+      injectPanel();
+      return null;
+    }
     if (fusionState.promise && !force) return fusionState.promise;
     fusionState.status = "loading";
     fusionState.message = "";
@@ -93,8 +134,11 @@
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || payload.configured === false || payload.connected === false) {
-          throw new Error(payload.message || `FusionSolar returned HTTP ${response.status}.`);
+          const error = new Error(payload.message || `FusionSolar returned HTTP ${response.status}.`);
+          error.failCode = payload.failCode ?? null;
+          throw error;
         }
+        localStorage.removeItem(COOLDOWN_KEY);
         fusionState.data = payload;
         fusionState.status = "ready";
         fusionState.message = payload.message || "FusionSolar connected.";
@@ -102,6 +146,7 @@
         fusionState.data = null;
         fusionState.status = "error";
         fusionState.message = error?.message || "FusionSolar connection failed.";
+        if (Number(error?.failCode) === 20400 || /code\s*20400/i.test(fusionState.message)) setCooldown();
       } finally {
         fusionState.checkedAt = new Date().toISOString();
         fusionState.promise = null;
@@ -127,4 +172,8 @@
     event.stopImmediatePropagation();
     testConnection(true);
   }, true);
+
+  setInterval(() => {
+    if (cooldownUntil()) injectPanel();
+  }, 60000);
 })();
