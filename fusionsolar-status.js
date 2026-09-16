@@ -53,7 +53,7 @@
       <span class="fusion-dot"></span>
       <div class="fusion-status-copy">
         <strong>FusionSolar connection issue</strong>
-        <span>${esc(fusion.message || "FusionSolar SG5 could not be reached.")} · Last checked: ${esc(checked)}</span>
+        <span>${esc(fusion.message || "FusionSolar SG5 could not be reached.")} | Last checked: ${esc(checked)}</span>
       </div>
     </section>`;
 

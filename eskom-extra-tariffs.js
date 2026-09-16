@@ -42,16 +42,16 @@
   }
 
   function summary() {
-    return "Complex Gen-offset structure · TOU export credit based on the eligible underlying tariff, supply voltage and Transmission zone · ancillary service credit · administration charge";
+    return "Complex Gen-offset structure | TOU export credit based on the eligible underlying tariff, supply voltage and Transmission zone | ancillary service credit | administration charge";
   }
 
   function previewHtml() {
     return `<div class="tariff-preview-grid">
       <span><small>Customer class</small><strong>${esc(GEN_OFFSET.customerClass)}</strong></span>
       <span><small>Structure</small><strong>complex net-billing / offset</strong></span>
-      <span><small>Effective</small><strong>${esc(dateLabel(GEN_OFFSET.effectiveFrom))} – ${esc(dateLabel(GEN_OFFSET.effectiveTo))}</strong></span>
+      <span><small>Effective</small><strong>${esc(dateLabel(GEN_OFFSET.effectiveFrom))} - ${esc(dateLabel(GEN_OFFSET.effectiveTo))}</strong></span>
       <span class="tariff-preview-wide"><small>Rates / components</small><strong>Exported energy is credited by peak, standard and off-peak period using the applicable underlying Eskom TOU tariff. The credit excludes the GCC portion embedded in the TOU energy rate and includes applicable losses by voltage and Transmission zone. Ancillary-service credit and an administration charge also apply.</strong></span>
-      <span class="tariff-preview-wide"><small>Additional billing inputs required</small><strong>${esc(GEN_OFFSET.requirements.join(" · "))}</strong></span>
+      <span class="tariff-preview-wide"><small>Additional billing inputs required</small><strong>${esc(GEN_OFFSET.requirements.join(" | "))}</strong></span>
     </div>`;
   }
 
@@ -73,7 +73,7 @@
     const status = form.querySelector("[data-tariff-status]");
     if (status) {
       status.className = "tariff-status ok";
-      status.textContent = source === "bill" ? "Eskom · Gen-offset identified from the uploaded bill." : "Eskom · Gen-offset selected.";
+      status.textContent = source === "bill" ? "Eskom | Gen-offset identified from the uploaded bill." : "Eskom | Gen-offset selected.";
     }
   }
 

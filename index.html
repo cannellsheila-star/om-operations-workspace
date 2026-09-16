@@ -14,7 +14,7 @@
       <aside class="sidebar" aria-label="Main navigation">
         <nav class="nav-list">
           <div class="nav-group om-nav" id="om-nav">
-            <button class="nav-parent active" type="button" data-nav="overview"><span>⌁</span> O&amp;M</button>
+            <button class="nav-parent active" type="button" data-nav="overview">O&amp;M</button>
             <div class="nav-submenu" id="om-submenu">
               <button class="nav-item" data-nav="monitoring">Monitoring</button>
               <button class="nav-item" data-nav="tickets">Tickets</button>
@@ -29,7 +29,7 @@
         <main class="main-content">
           <header class="topbar">
             <div>
-              <p class="eyebrow" id="page-eyebrow">PORTFOLIO COMMAND CENTRE</p>
+              <p class="eyebrow" id="page-eyebrow">O&M / SYSTEMS</p>
               <h1 id="page-title">Systems overview</h1>
             </div>
             <div class="topbar-actions">
@@ -135,7 +135,7 @@
           }
           system.systemCount = system.systemCount || 1;
           persistedPatch.systemCount = system.systemCount;
-          system.monitoring = system.platform ? `${system.platform} · connection pending` : "Monitoring platform not recorded";
+          system.monitoring = system.platform ? `${system.platform} | connection pending` : "Monitoring platform not recorded";
           system.alert = system.alert || "No monitoring exception recorded.";
           system.documents = system.documents || [];
           system.updates = ["System record updated today", ...(system.updates || [])];

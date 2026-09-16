@@ -15,7 +15,7 @@ function saveWorkspace() {
 
 const importedSystem = (details) => ({
   status: "Status not confirmed", documents: [], folder: "", monitoringUrl: "",
-  monitoring: details.platform ? `${details.platform} · connection pending` : "Monitoring platform not recorded",
+  monitoring: details.platform ? `${details.platform} | connection pending` : "Monitoring platform not recorded",
   alert: "Operating status has not yet been confirmed in the asset register.", updates: ["Imported from asset register"],
   contactName: "", contact: "", platform: "", systemCount: 1,
   gridSupply: "Not confirmed", tariffName: "", utilityTariff: "", tariffEffectiveDate: "", tariffAnnualIncrease: "",
@@ -104,9 +104,9 @@ function pageHeader(nextTitle, nextEyebrow, actionLabel = "") {
 }
 
 function formatMetric(value, unit = "") {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return "—";
+  if (!Number.isFinite(numericValue)) return "-";
   return `${numericValue.toLocaleString("en-ZA", { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`;
 }
 
@@ -153,9 +153,9 @@ function renderMonitoring() {
   appView.innerHTML = `
     <p class="subtitle"><span class="status-dot ${monitoringState.data?.configured ? "is-live" : ""}"></span>${monitoringConnectionCopy()}</p>
     <div class="monitoring-stat-grid">
-      <article class="stat-card"><span>Current portfolio power</span><strong>${connectedRows.length ? formatMetric(totalPower, "kW") : "—"}</strong><span>${connectedRows.length ? `${connectedRows.length} systems reporting` : "Awaiting telemetry feed"}</span></article>
-      <article class="stat-card"><span>Generation today</span><strong>${connectedRows.length ? formatMetric(totalEnergy, "kWh") : "—"}</strong><span>From the latest available system readings</span></article>
-      <article class="stat-card"><span>Availability</span><strong>${averageAvailability === null ? "—" : formatMetric(averageAvailability, "%")}</strong><span>${availability.length ? "Average for reporting systems" : "Available once the feed is connected"}</span></article>
+      <article class="stat-card"><span>Current portfolio power</span><strong>${connectedRows.length ? formatMetric(totalPower, "kW") : "-"}</strong><span>${connectedRows.length ? `${connectedRows.length} systems reporting` : "Awaiting telemetry feed"}</span></article>
+      <article class="stat-card"><span>Generation today</span><strong>${connectedRows.length ? formatMetric(totalEnergy, "kWh") : "-"}</strong><span>From the latest available system readings</span></article>
+      <article class="stat-card"><span>Availability</span><strong>${averageAvailability === null ? "-" : formatMetric(averageAvailability, "%")}</strong><span>${availability.length ? "Average for reporting systems" : "Available once the feed is connected"}</span></article>
       <article class="stat-card"><span>Systems tracked</span><strong>${systems.length}</strong><span>${connectedRows.length}/${systems.length} currently reporting</span></article>
     </div>
     <div class="section-header"><h2>System performance</h2><span class="muted">Click a system to open its full record</span></div>
@@ -163,7 +163,7 @@ function renderMonitoring() {
       <div class="monitoring-head"><span>System</span><span>Operating state</span><span>Power now</span><span>Generation today</span><span>Availability</span><span>Last signal</span></div>
       ${rows.map(({ system, telemetry }) => `
         <div class="monitoring-row ${state.monitoringSystem === system.id ? "selected" : ""}">
-          <button class="asset-site" data-action="open-system" data-id="${system.id}"><strong>${system.name}</strong><span>${system.id} · ${formatMetric(system.kwp, "kWp")}</span></button>
+          <button class="asset-site" data-action="open-system" data-id="${system.id}"><strong>${system.name}</strong><span>${system.id} | ${formatMetric(system.kwp, "kWp")}</span></button>
           <span>${tag(telemetry?.status || system.status)}</span>
           <span class="monitoring-value">${formatMetric(telemetry?.powerKw, "kW")}</span>
           <span class="monitoring-value">${formatMetric(telemetry?.energyTodayKwh, "kWh")}</span>
@@ -194,8 +194,8 @@ function renderMonitoring() {
       ${systems.map((system) => `
         <article class="overview-system-row">
           <button class="overview-system-main" data-action="open-system" data-id="${system.id}" aria-label="Open system record for ${system.name}">
-            <span class="overview-system-identity"><span class="card-title">${system.name}</span><span class="card-meta">${system.id} · EPC: ${system.epc || "Not recorded"} · COD ${system.cod || "Not recorded"}</span></span>
-            <span class="overview-system-capacity"><strong>${formatMetric(system.kwp, "kWp")} · ${formatMetric(system.kwh, "kWh")}</strong><span class="card-meta">O&amp;M: ${system.contractor || "Not recorded"}</span></span>
+            <span class="overview-system-identity"><span class="card-title">${system.name}</span><span class="card-meta">${system.id} | EPC: ${system.epc || "Not recorded"} | COD ${system.cod || "Not recorded"}</span></span>
+            <span class="overview-system-capacity"><strong>${formatMetric(system.kwp, "kWp")} | ${formatMetric(system.kwh, "kWh")}</strong><span class="card-meta">O&amp;M: ${system.contractor || "Not recorded"}</span></span>
           </button>
           <span class="overview-system-state">${tag(system.status)}</span>
           <span class="overview-system-work"><span class="card-meta">Open tickets ${openTicketsForSystem(system.id).length}</span><span class="card-meta">${system.nextPm && system.nextPm !== "-" ? `Next PM ${system.nextPm}` : "PM date not set"}</span><button class="asset-folder" data-action="folder" data-id="${system.id}">${/^https?:\/\//i.test(system.folder || "") ? "Open OneDrive ↗" : "Add OneDrive link"}</button></span>
@@ -213,7 +213,7 @@ function renderSystemRecord(id) {
   const related = openTicketsForSystem(id);
   appView.innerHTML = `
     <div class="record-head">
-      <div><p class="eyebrow">${system.id}</p><h2>${system.name}</h2><p class="muted">${formatMetric(system.kwp, "kWp")} · ${formatMetric(system.kwh, "kWh")} · COD ${system.cod || "Not recorded"}</p></div>
+      <div><p class="eyebrow">${system.id}</p><h2>${system.name}</h2><p class="muted">${formatMetric(system.kwp, "kWp")} | ${formatMetric(system.kwh, "kWh")} | COD ${system.cod || "Not recorded"}</p></div>
       <div>${tag(system.status)} <button class="button button-muted" data-action="edit-system" data-id="${system.id}">Edit system</button> <button class="button button-muted" data-action="view-monitoring" data-id="${system.id}">View monitoring</button> <button class="button button-muted" data-action="folder" data-id="${system.id}">Open OneDrive folder ↗</button></div>
     </div>
     <div class="record-grid">
@@ -221,7 +221,7 @@ function renderSystemRecord(id) {
         <section class="surface">
           <div class="surface-title"><h3>Asset profile</h3><span class="muted">Primary contacts and dates</span></div>
           <div class="details-grid">
-            ${detail("System ID", system.id)}${detail("Number of systems", String(system.systemCount || 1))}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("Site contact", system.contactName || "Not recorded")}${detail("Contact email(s)", system.contact || "Not recorded")}${detail("Monitoring platform", system.platform || "Not recorded")}${detail("EaaS rate — battery cost", system.eassRate || "Not recorded")}${detail("EaaS annual increase", system.eassAnnualIncrease || "Not recorded")}${detail("EaaS next increase date", system.eassIncreaseDate || "Not recorded")}${detail("EaaS tenor", system.eassTenor ? `${system.eassTenor} years` : "Not recorded")}${detail("PPA rate — per kWh produced", system.ppaRate || "Not recorded")}${detail("PPA annual increase", system.ppaAnnualIncrease || "Not recorded")}${detail("PPA next increase date", system.ppaIncreaseDate || "Not recorded")}${detail("PPA tenor", system.ppaTenor ? `${system.ppaTenor} years` : "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
+            ${detail("System ID", system.id)}${detail("Number of systems", String(system.systemCount || 1))}${detail("EPC installer", system.epc || "Not recorded")}${detail("O&M contractor", system.contractor || "Not recorded")}${detail("COD date", system.cod || "Not recorded")}${detail("Offtaker", system.offtaker || "Not recorded")}${detail("Site contact", system.contactName || "Not recorded")}${detail("Contact email(s)", system.contact || "Not recorded")}${detail("Monitoring platform", system.platform || "Not recorded")}${detail("EaaS rate - battery cost", system.eassRate || "Not recorded")}${detail("EaaS annual increase", system.eassAnnualIncrease || "Not recorded")}${detail("EaaS next increase date", system.eassIncreaseDate || "Not recorded")}${detail("EaaS tenor", system.eassTenor ? `${system.eassTenor} years` : "Not recorded")}${detail("PPA rate - per kWh produced", system.ppaRate || "Not recorded")}${detail("PPA annual increase", system.ppaAnnualIncrease || "Not recorded")}${detail("PPA next increase date", system.ppaIncreaseDate || "Not recorded")}${detail("PPA tenor", system.ppaTenor ? `${system.ppaTenor} years` : "Not recorded")}${detail("Next PM due", system.nextPm || "Not recorded")}${detail("Last PM completion", system.lastPm || "Not recorded")}${detail("Open tickets", String(related.length))}
           </div>
         </section>
         <section class="surface">
@@ -274,7 +274,7 @@ function renderTickets() {
       ${visible.map((ticket) => { const system = getSystem(ticket.system); return `
         <button class="ticket-row" data-action="open-ticket" data-id="${ticket.id}">
           <span class="ticket-number">${ticket.id.slice(-4)}</span>
-          <span><span class="card-title">${ticket.issue}</span><span class="card-meta">${ticket.id} · ${system.name} · ${ticket.source}</span></span>
+          <span><span class="card-title">${ticket.issue}</span><span class="card-meta">${ticket.id} | ${system.name} | ${ticket.source}</span></span>
           <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}</span>
           ${tag(ticket.concern)}
           <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${ticket.opened}</span>
@@ -291,7 +291,7 @@ function renderTicketWorkroom(id) {
   pageHeader("Ticket workroom", "TICKETS / SELECTED RECORD");
   appView.innerHTML = `
     <div class="record-head">
-      <div><p class="eyebrow">${ticket.id} · ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.source} · Found ${ticket.found}</p></div>
+      <div><p class="eyebrow">${ticket.id} | ${system.name}</p><h2>${ticket.issue}</h2><p class="muted">${ticket.source} | Found ${ticket.found}</p></div>
       <div>${tag(ticket.status)} ${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""} ${tag(ticket.concern)} <button class="button button-muted" data-action="edit-ticket" data-id="${ticket.id}">Edit ticket</button></div>
     </div>
     <div class="workroom-grid">
@@ -340,14 +340,14 @@ function renderMaintenance() {
   appView.innerHTML = `
     <p class="subtitle">Plan by month, retain the exact completion date and send one controlled package to the selected contacts.</p>
     <div class="calendar-grid">
-      ${months.map((month) => { const items = maintenance.filter((item) => item.month === month); return `<section class="month-card ${items.some((item) => item.id === selected.id) ? "active" : ""}"><h3>${month}</h3><p class="muted">${items.length ? `${items.length} site visit${items.length > 1 ? "s" : ""} due` : "No visits due"}</p>${items.map((item) => { const system = getSystem(item.system); const tone = item.status === "Completed" ? "green" : item.status === "PM pack prepared" ? "amber" : "blue"; return `<button class="maintenance-item ${tone}" data-action="select-maintenance" data-id="${item.id}"><strong>${system.name}</strong><span>${item.status}${item.completion ? ` · Completed ${item.completion}` : item.linked ? ` · ${item.linked} linked ticket` : ""}</span></button>`; }).join("")}</section>`; }).join("")}
+      ${months.map((month) => { const items = maintenance.filter((item) => item.month === month); return `<section class="month-card ${items.some((item) => item.id === selected.id) ? "active" : ""}"><h3>${month}</h3><p class="muted">${items.length ? `${items.length} site visit${items.length > 1 ? "s" : ""} due` : "No visits due"}</p>${items.map((item) => { const system = getSystem(item.system); const tone = item.status === "Completed" ? "green" : item.status === "PM pack prepared" ? "amber" : "blue"; return `<button class="maintenance-item ${tone}" data-action="select-maintenance" data-id="${item.id}"><strong>${system.name}</strong><span>${item.status}${item.completion ? ` | Completed ${item.completion}` : item.linked ? ` | ${item.linked} linked ticket` : ""}</span></button>`; }).join("")}</section>`; }).join("")}
     </div>
     <div class="section-header"><h2>PM email package</h2><span class="tag tag-${statusTone(selected.status)}">${selected.status}</span></div>
     <div class="email-package">
-      <section class="email-card"><h3>1 · Request dates from off-taker</h3>${detail("To", `${selectedSystem.offtaker.toLowerCase().replace(/\s/g, ".")}@example.com`)}${detail("CC", "operations@blueenergyafrica.example")}<div class="message-preview"><strong>Subject: </strong>${selected.month} PM — ${selectedSystem.name}<br /><br />Maintenance is due this month. Please confirm suitable access dates.</div></section>
-      <section class="email-card"><h3>2 · Send the O&amp;M work package</h3>${detail("To", selectedSystem.contact)}${detail("CC", "operations@blueenergyafrica.example")}<div class="message-preview"><strong>Includes:</strong><br />PM scope + ${selected.linked} linked corrective ticket${selected.linked === 1 ? "" : "s"}<br /><br />The contractor reply remains with this maintenance event and its linked tickets.</div></section>
+      <section class="email-card"><h3>1 | Request dates from off-taker</h3>${detail("To", `${selectedSystem.offtaker.toLowerCase().replace(/\s/g, ".")}@example.com`)}${detail("CC", "operations@blueenergyafrica.example")}<div class="message-preview"><strong>Subject: </strong>${selected.month} PM - ${selectedSystem.name}<br /><br />Maintenance is due this month. Please confirm suitable access dates.</div></section>
+      <section class="email-card"><h3>2 | Send the O&amp;M work package</h3>${detail("To", selectedSystem.contact)}${detail("CC", "operations@blueenergyafrica.example")}<div class="message-preview"><strong>Includes:</strong><br />PM scope + ${selected.linked} linked corrective ticket${selected.linked === 1 ? "" : "s"}<br /><br />The contractor reply remains with this maintenance event and its linked tickets.</div></section>
     </div>
-    <section class="surface" style="margin-top:18px;"><div class="surface-title"><h3>Attachments selected from the system document library</h3><button class="button button-primary" data-action="prepare-pm-email">Prepare email package</button></div><div class="attachment-row">${selectedSystem.documents.map((document) => `<span class="tag tag-blue">${document}</span>`).join("")}${openTicketsForSystem(selected.system).filter((ticket) => ticket.pm).map((ticket) => `<span class="tag tag-amber">${ticket.id} · ticket record</span>`).join("")}</div><p class="muted" style="margin:16px 0 0;">Once the visit is complete, save the exact completion date. The monthly calendar then turns green.</p></section>
+    <section class="surface" style="margin-top:18px;"><div class="surface-title"><h3>Attachments selected from the system document library</h3><button class="button button-primary" data-action="prepare-pm-email">Prepare email package</button></div><div class="attachment-row">${selectedSystem.documents.map((document) => `<span class="tag tag-blue">${document}</span>`).join("")}${openTicketsForSystem(selected.system).filter((ticket) => ticket.pm).map((ticket) => `<span class="tag tag-amber">${ticket.id} | ticket record</span>`).join("")}</div><p class="muted" style="margin:16px 0 0;">Once the visit is complete, save the exact completion date. The monthly calendar then turns green.</p></section>
   `;
 }
 
@@ -378,11 +378,11 @@ function openModal(kind, context = {}) {
           <div class="field"><label>Grid tariff rate</label><input name="utilityTariff" value="${system.utilityTariff || ""}" placeholder="e.g. R 3.15/kWh" /></div>
           <div class="field"><label>Tariff effective date</label><input name="tariffEffectiveDate" value="${system.tariffEffectiveDate || ""}" placeholder="e.g. 01 July 2026" /></div>
           <div class="field"><label>Annual tariff increase</label><input name="tariffAnnualIncrease" value="${system.tariffAnnualIncrease || ""}" placeholder="e.g. 12.5%" /></div>
-          <div class="field"><label>PPA rate — per kWh produced</label><input name="ppaRate" value="${system.ppaRate || ""}" placeholder="e.g. R 2.10/kWh" /></div>
+          <div class="field"><label>PPA rate - per kWh produced</label><input name="ppaRate" value="${system.ppaRate || ""}" placeholder="e.g. R 2.10/kWh" /></div>
           <div class="field"><label>PPA annual increase</label><input name="ppaAnnualIncrease" value="${system.ppaAnnualIncrease || ""}" placeholder="e.g. CPI + 1.5%" /></div>
           <div class="field"><label>PPA next increase date</label><input name="ppaIncreaseDate" value="${system.ppaIncreaseDate || ""}" placeholder="e.g. 01 January 2027" /></div>
           <div class="field"><label>PPA tenor (years)</label><input name="ppaTenor" type="number" min="0" value="${system.ppaTenor ?? ""}" /></div>
-          <div class="field"><label>EaaS rate — battery cost</label><input name="eassRate" value="${system.eassRate || ""}" placeholder="e.g. R 15,000/month" /></div>
+          <div class="field"><label>EaaS rate - battery cost</label><input name="eassRate" value="${system.eassRate || ""}" placeholder="e.g. R 15,000/month" /></div>
           <div class="field"><label>EaaS annual increase</label><input name="eassAnnualIncrease" value="${system.eassAnnualIncrease || ""}" placeholder="e.g. CPI + 1.5%" /></div>
           <div class="field"><label>EaaS next increase date</label><input name="eassIncreaseDate" value="${system.eassIncreaseDate || ""}" placeholder="e.g. 01 January 2027" /></div>
           <div class="field"><label>EaaS tenor (years)</label><input name="eassTenor" type="number" min="0" value="${system.eassTenor ?? ""}" /></div>
@@ -440,8 +440,8 @@ function onAction(action, id) {
   if (action === "document") showToast("Document access will connect to the selected system folder.");
   if (action === "add-photo") openModal("files");
   if (action === "copy-email") { navigator.clipboard?.writeText(ticketEmail(state.selectedTicket)); showToast("Dedicated ticket email copied."); }
-  if (action === "prepare-email") { const ticket = getTicket(state.selectedTicket); openModal("email", { title: "Prepare ticket update", to: ticket.owner === "Blue Energy Africa" ? "operations@blueenergyafrica.example" : getSystem(ticket.system).contact, subject: `${ticket.id} — ${ticket.issue}`, body: `Please see the current update for ${ticket.id}.\n\nNext action: ${latestWorkNote(ticket)}` }); }
-  if (action === "prepare-pm-email") { const item = getMaintenance(state.selectedMaintenance); const system = getSystem(item.system); openModal("email", { title: "Prepare PM email package", to: system.contact, subject: `${item.month} PM — ${system.name}`, body: `Please find the PM scope and linked corrective work for ${system.name}. System documents are attached from the selected document library.` }); }
+  if (action === "prepare-email") { const ticket = getTicket(state.selectedTicket); openModal("email", { title: "Prepare ticket update", to: ticket.owner === "Blue Energy Africa" ? "operations@blueenergyafrica.example" : getSystem(ticket.system).contact, subject: `${ticket.id} - ${ticket.issue}`, body: `Please see the current update for ${ticket.id}.\n\nNext action: ${latestWorkNote(ticket)}` }); }
+  if (action === "prepare-pm-email") { const item = getMaintenance(state.selectedMaintenance); const system = getSystem(item.system); openModal("email", { title: "Prepare PM email package", to: system.contact, subject: `${item.month} PM - ${system.name}`, body: `Please find the PM scope and linked corrective work for ${system.name}. System documents are attached from the selected document library.` }); }
   if (action === "quote-approved") { const ticket = getTicket(state.selectedTicket); ticket.status = "Open"; saveWorkspace(); renderTicketWorkroom(ticket.id); showToast("Approval recorded; ticket returned to the active work queue."); }
   if (action === "queue-email") { closeModal(); showToast("Email package queued for the connected sending service."); }
 }
@@ -489,7 +489,7 @@ modalContent.addEventListener("submit", (event) => {
       eassRate: String(form.get("eassRate")).trim(), eassAnnualIncrease: String(form.get("eassAnnualIncrease")).trim(), eassIncreaseDate: String(form.get("eassIncreaseDate")).trim(), eassTenor: optionalNumber(form.get("eassTenor")),
       ppaRate: String(form.get("ppaRate")).trim(), ppaAnnualIncrease: String(form.get("ppaAnnualIncrease")).trim(), ppaIncreaseDate: String(form.get("ppaIncreaseDate")).trim(), ppaTenor: optionalNumber(form.get("ppaTenor")),
       nextPm: String(form.get("nextPm")).trim(), lastPm: String(form.get("lastPm")).trim(), folder: String(form.get("folder")).trim(), monitoringUrl: String(form.get("monitoringUrl")).trim(),
-      monitoring: String(form.get("platform")).trim() ? `${String(form.get("platform")).trim()} · connection pending` : "Monitoring platform not recorded", alert: "No monitoring exception recorded.", updates: ["System record updated today"], documents: []
+      monitoring: String(form.get("platform")).trim() ? `${String(form.get("platform")).trim()} | connection pending` : "Monitoring platform not recorded", alert: "No monitoring exception recorded.", updates: ["System record updated today"], documents: []
     };
     if (editedId) {
       const index = systems.findIndex((system) => system.id === editedId);

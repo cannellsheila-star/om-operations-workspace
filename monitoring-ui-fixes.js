@@ -16,12 +16,12 @@
 
   function localDateTime(value) {
     const date = value instanceof Date ? value : parseTime(value);
-    return date ? date.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : "—";
+    return date ? date.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : "-";
   }
 
   function fmt(value, unit = "") {
     const n = num(value);
-    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ""}`;
+    return n === null ? "-" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ""}`;
   }
 
   function stationPowerRows(detail) {

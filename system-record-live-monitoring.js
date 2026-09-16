@@ -13,7 +13,7 @@
   const norm = (value) => String(value || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
   const fmt = (value, unit = "", digits = 1) => {
     const n = num(value);
-    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
+    return n === null ? "-" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
   };
 
   function installStyles() {
@@ -115,7 +115,7 @@
         <div class="record-live-metric"><span>Generation today</span><strong>${fmt(data.generation, "kWh", 1)}</strong></div>
         <div class="record-live-metric"><span>BESS SOC</span><strong>${fmt(data.soc, "%", 0)}</strong></div>
       </div>
-      <div class="record-live-note">${esc(data.linked ? `${data.provider} live data` : `${data.provider} · live API not connected`)}</div>`;
+      <div class="record-live-note">${esc(data.linked ? `${data.provider} live data` : `${data.provider} | live API not connected`)}</div>`;
   }
 
   async function loadFusionDetail(system) {

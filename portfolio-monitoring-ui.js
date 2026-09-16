@@ -21,7 +21,7 @@
   const norm = (value) => String(value || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
   const fmt = (value, unit = "", digits = 1) => {
     const n = num(value);
-    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
+    return n === null ? "-" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
   };
   const firstNum = (...values) => {
     for (const value of values) {
@@ -230,7 +230,7 @@
     if (metrics.gridImport !== null && metrics.gridImport > 0.01) return { text: `Import ${fmt(metrics.gridImport, "kW", 1)}`, cls: "import", sub: metrics.gridExport !== null ? `Export ${fmt(metrics.gridExport, "kW", 1)}` : "From grid" };
     if (metrics.gridExport !== null && metrics.gridExport > 0.01) return { text: `Export ${fmt(metrics.gridExport, "kW", 1)}`, cls: "export", sub: "To grid" };
     if (metrics.gridNet !== null) return { text: fmt(Math.abs(metrics.gridNet), "kW", 1), cls: "neutral", sub: "Net grid flow" };
-    return { text: "—", cls: "neutral", sub: "No live grid value" };
+    return { text: "-", cls: "neutral", sub: "No live grid value" };
   }
 
   function batteryDisplay(metrics) {
@@ -259,7 +259,7 @@
       const grid = gridDisplay(metrics);
       const age = ageLabel(signalTime(telemetry, metrics.detail));
       const alarmCount = metrics.alarms === null ? null : Math.max(0, Math.round(metrics.alarms));
-      return `<button class="plive-row" type="button" data-smv2-open="${esc(system.id)}"><span class="plive-site"><strong>${esc(system.name)}</strong><small>${esc(system.id)} · ${fmt(system.kwp, "kWp", 1)}${num(system.kwh) > 0 ? ` · ${fmt(system.kwh, "kWh", 0)} BESS` : ""}</small></span><span class="plive-status"><span class="plive-status-main"><i class="plive-dot ${statusClass(status)}"></i>${esc(status)}</span><span class="plive-age">${esc(age)}</span></span><span><span class="plive-source">${esc(provider)}</span></span><span class="plive-metric"><strong>${fmt(metrics.pv, "kW", 1)}</strong><small>Live PV</small></span><span class="plive-metric"><strong>${fmt(metrics.load, "kW", 1)}</strong><small>Site demand</small></span><span class="plive-metric"><strong class="plive-gridflow ${grid.cls}">${esc(grid.text)}</strong><small>${esc(grid.sub)}</small></span><span>${batteryDisplay(metrics)}</span><span><span class="plive-alarm ${alarmCount > 0 ? "hot" : ""}">${alarmCount === null ? "—" : alarmCount}</span></span></button>`;
+      return `<button class="plive-row" type="button" data-smv2-open="${esc(system.id)}"><span class="plive-site"><strong>${esc(system.name)}</strong><small>${esc(system.id)} | ${fmt(system.kwp, "kWp", 1)}${num(system.kwh) > 0 ? ` | ${fmt(system.kwh, "kWh", 0)} BESS` : ""}</small></span><span class="plive-status"><span class="plive-status-main"><i class="plive-dot ${statusClass(status)}"></i>${esc(status)}</span><span class="plive-age">${esc(age)}</span></span><span><span class="plive-source">${esc(provider)}</span></span><span class="plive-metric"><strong>${fmt(metrics.pv, "kW", 1)}</strong><small>Live PV</small></span><span class="plive-metric"><strong>${fmt(metrics.load, "kW", 1)}</strong><small>Site demand</small></span><span class="plive-metric"><strong class="plive-gridflow ${grid.cls}">${esc(grid.text)}</strong><small>${esc(grid.sub)}</small></span><span>${batteryDisplay(metrics)}</span><span><span class="plive-alarm ${alarmCount > 0 ? "hot" : ""}">${alarmCount === null ? "-" : alarmCount}</span></span></button>`;
     }).join("")}</div></div>`;
   }
 

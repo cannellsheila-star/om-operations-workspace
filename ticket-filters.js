@@ -75,7 +75,7 @@
       const urgency = String(ticket.concern || "").toLowerCase();
       return `<button class="ticket-row" data-action="open-ticket" data-id="${esc(ticket.id)}" data-ticket-filter-row data-ticket-search="${esc(searchText)}" data-ticket-urgency="${esc(urgency)}">
         <span class="ticket-number">${esc(ticket.id.slice(-4))}</span>
-        <span><span class="card-title">${esc(ticket.issue)}</span><span class="card-meta">${esc(ticket.id)} · ${esc(systemName)} · ${esc(ticket.source)}</span></span>
+        <span><span class="card-title">${esc(ticket.issue)}</span><span class="card-meta">${esc(ticket.id)} | ${esc(systemName)} | ${esc(ticket.source)}</span></span>
         <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}</span>
         ${tag(ticket.concern)}
         <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${esc(ticket.opened)}</span>

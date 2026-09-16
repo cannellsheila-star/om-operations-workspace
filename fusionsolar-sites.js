@@ -22,7 +22,7 @@
   const num = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
   const fmt = (value, unit = "", digits = 2) => {
     const n = num(value);
-    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
+    return n === null ? "-" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
   };
   const norm = (value) => String(value || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -167,7 +167,7 @@
     if (subtitle && fusion.status === "ready") {
       const deyeCount = (monitoringState.data?.systems || []).filter((item) => !item._fusionSynthetic).length;
       const fusionSites = systems.filter((system) => syntheticTelemetry(system)).length;
-      subtitle.innerHTML = `<span class="status-dot is-live"></span>Live monitoring connected · ${deyeCount} Deye station${deyeCount === 1 ? "" : "s"} · ${fusion.data?.systems?.length || 0} FusionSolar plants mapped into ${fusionSites} workspace site${fusionSites === 1 ? "" : "s"}.`;
+      subtitle.innerHTML = `<span class="status-dot is-live"></span>Live monitoring connected | ${deyeCount} Deye station${deyeCount === 1 ? "" : "s"} | ${fusion.data?.systems?.length || 0} FusionSolar plants mapped into ${fusionSites} workspace site${fusionSites === 1 ? "" : "s"}.`;
     }
     const firstStat = appView.querySelector(".monitoring-stat-grid .stat-card:first-child span:last-child");
     if (firstStat && fusion.status === "ready") firstStat.textContent = "Combined reporting across Deye and FusionSolar";
@@ -232,7 +232,7 @@
 
   function bessFlow(device) {
     const signed = num(device?.signedPowerKw);
-    if (signed === null) return "—";
+    if (signed === null) return "-";
     if (signed > 0.001) return `Charging ${fmt(signed, "kW")}`;
     if (signed < -0.001) return `Discharging ${fmt(Math.abs(signed), "kW")}`;
     return "Idle 0 kW";
@@ -253,7 +253,7 @@
 
     return `
       <div class="fs-site-head">
-        <div><p class="eyebrow">${esc(system.id)} · FUSIONSOLAR NORTHBOUND</p><h2>${esc(system.name)}</h2><p class="muted">${esc(selectionLabel)} · SG5 · Singapore API region</p></div>
+        <div><p class="eyebrow">${esc(system.id)} | FUSIONSOLAR NORTHBOUND</p><h2>${esc(system.name)}</h2><p class="muted">${esc(selectionLabel)} | SG5 | Singapore API region</p></div>
         <div class="fs-controls">
           <select class="fs-select" id="fusion-plant-select" data-system-id="${esc(system.id)}">
             <option value="all" ${selected === "all" ? "selected" : ""}>All plants combined</option>
@@ -270,7 +270,7 @@
         <div class="fs-kpi"><span>Charge</span><strong>${fmt(metrics.chargePowerKw, "kW")}</strong><small>Positive ESS power</small></div>
         <div class="fs-kpi"><span>Discharge</span><strong>${fmt(metrics.dischargePowerKw, "kW")}</strong><small>Negative ESS power</small></div>
       </div>
-      ${liveEssMissing ? `<p class="fs-api-note">Huawei returned the ESS inventory, but the live type 41 KPI call is waiting for the Northbound rate-limit window${nextAllowed ? ` · next safe refresh after ${esc(nextAllowed)}` : ""}. No BESS value is being guessed.</p>` : ""}
+      ${liveEssMissing ? `<p class="fs-api-note">Huawei returned the ESS inventory, but the live type 41 KPI call is waiting for the Northbound rate-limit window${nextAllowed ? ` | next safe refresh after ${esc(nextAllowed)}` : ""}. No BESS value is being guessed.</p>` : ""}
       ${bessDevices.length ? `<section class="surface monitor-section">
         <div class="surface-title"><h3>BESS / ESS</h3><span class="muted">Live Huawei C&I / utility ESS data</span></div>
         <div class="fs-bess-grid">
@@ -291,7 +291,7 @@
       <section class="surface monitor-section">
         <div class="surface-title"><h3>Devices</h3><span class="muted">${devices.length} device${devices.length === 1 ? "" : "s"} in ${esc(selectionLabel)}</span></div>
         <div class="fs-device-list">
-          ${devices.map((device) => `<div class="fs-device-row"><strong>${esc(device.name || device.typeName || "Device")}</strong><span>${esc(device.typeName || `Type ${device.typeId || "—"}`)}</span><span>${esc(device.model || "Model not returned")}</span><span>SN ${esc(device.sn || "—")}</span></div>`).join("") || `<div class="fs-empty">No devices returned for this selection.</div>`}
+          ${devices.map((device) => `<div class="fs-device-row"><strong>${esc(device.name || device.typeName || "Device")}</strong><span>${esc(device.typeName || `Type ${device.typeId || "-"}`)}</span><span>${esc(device.model || "Model not returned")}</span><span>SN ${esc(device.sn || "-")}</span></div>`).join("") || `<div class="fs-empty">No devices returned for this selection.</div>`}
         </div>
       </section>
       <section class="surface monitor-section">

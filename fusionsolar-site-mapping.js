@@ -75,7 +75,7 @@
     documents: [],
     folder: "",
     monitoringUrl: "",
-    monitoring: "FusionSolar · connected through Northbound API",
+    monitoring: "FusionSolar | connected through Northbound API",
     alert: "No monitoring exception recorded.",
     updates: ["Separated from the former AR Residential aggregate record for site-level O&M monitoring."],
     contactName: legacyAr?.contactName || "",

@@ -23,16 +23,16 @@
       supply: "Municipal",
       version: "2026/2027",
       tariffs: [
-        { id:"midvaal-domestic", name:"Domestic Supplies — Conventional / Prepaid", customerClass:"Residential", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"inclining",blocks:[{from:0,to:50,ratePerKwh:2.1786},{from:50,to:350,ratePerKwh:2.8010},{from:350,to:600,ratePerKwh:3.8412},{from:600,to:null,ratePerKwh:4.4694}]}, aliases:["domestic supplies","domestic conventional","domestic prepaid"] },
-        { id:"midvaal-nondomestic-lt100", name:"Non-Domestic Supplies — <100 kVA", customerClass:"Commercial / Industrial", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:4.6894}}, aliases:["non domestic supplies","less than 100 kva","<100 kva"] },
-        { id:"midvaal-demand-lv", name:"Non-Domestic Demand — Low Voltage ≥100 kVA", customerClass:"Commercial / Industrial demand", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.4507,demandPerKva:311.97}}, aliases:["non domestic demand low voltage","low voltage 100 kva"] },
-        { id:"midvaal-demand-mv", name:"Non-Domestic Demand — Medium Voltage ≥100 kVA", customerClass:"Commercial / Industrial demand", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.4751,demandPerKva:305.20}}, aliases:["non domestic demand medium voltage","medium voltage 100 kva"] },
-        { id:"midvaal-offpeak-lv", name:"Midvaal Off-Peak Tariff — Low Voltage", customerClass:"Commercial / Industrial TOU", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:2.1532,demandPerKva:674.57}}, aliases:["off peak low voltage","off-peak low voltage"] },
-        { id:"midvaal-offpeak-mv", name:"Midvaal Off-Peak Tariff — Medium Voltage", customerClass:"Commercial / Industrial TOU", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:2.1532,demandPerKva:642.51}}, aliases:["off peak medium voltage","off-peak medium voltage"] },
+        { id:"midvaal-domestic", name:"Domestic Supplies - Conventional / Prepaid", customerClass:"Residential", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"inclining",blocks:[{from:0,to:50,ratePerKwh:2.1786},{from:50,to:350,ratePerKwh:2.8010},{from:350,to:600,ratePerKwh:3.8412},{from:600,to:null,ratePerKwh:4.4694}]}, aliases:["domestic supplies","domestic conventional","domestic prepaid"] },
+        { id:"midvaal-nondomestic-lt100", name:"Non-Domestic Supplies - <100 kVA", customerClass:"Commercial / Industrial", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:4.6894}}, aliases:["non domestic supplies","less than 100 kva","<100 kva"] },
+        { id:"midvaal-demand-lv", name:"Non-Domestic Demand - Low Voltage ≥100 kVA", customerClass:"Commercial / Industrial demand", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.4507,demandPerKva:311.97}}, aliases:["non domestic demand low voltage","low voltage 100 kva"] },
+        { id:"midvaal-demand-mv", name:"Non-Domestic Demand - Medium Voltage ≥100 kVA", customerClass:"Commercial / Industrial demand", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.4751,demandPerKva:305.20}}, aliases:["non domestic demand medium voltage","medium voltage 100 kva"] },
+        { id:"midvaal-offpeak-lv", name:"Midvaal Off-Peak Tariff - Low Voltage", customerClass:"Commercial / Industrial TOU", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:2.1532,demandPerKva:674.57}}, aliases:["off peak low voltage","off-peak low voltage"] },
+        { id:"midvaal-offpeak-mv", name:"Midvaal Off-Peak Tariff - Medium Voltage", customerClass:"Commercial / Industrial TOU", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:2.1532,demandPerKva:642.51}}, aliases:["off peak medium voltage","off-peak medium voltage"] },
         { id:"midvaal-megaflex", name:"Midvaal Megaflex", customerClass:"Large Commercial / Industrial TOU", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"tou",components:{demandPerKva:205.03},seasons:{low:{months:[9,10,11,12,1,2,3,4,5],rates:{peak:5.1906,standard:2.3292,offPeak:1.8334}},high:{months:[6,7,8],rates:{peak:7.8303,standard:3.2423,offPeak:1.9625}}}}, aliases:["midvaal megaflex","megaflex"] },
-        { id:"midvaal-bulk-lv", name:"Bulk Supplies — Low Voltage", customerClass:"Major Bulk", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.5474,demandPerKva:320.72}}, aliases:["bulk supplies low voltage","bulk low voltage"] },
-        { id:"midvaal-bulk-mv", name:"Bulk Supplies — Medium Voltage", customerClass:"Major Bulk", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.5725,demandPerKva:313.75}}, aliases:["bulk supplies medium voltage","bulk medium voltage"] },
-        { id:"midvaal-agricultural-standard", name:"Agricultural Supplies — Standard", customerClass:"Agricultural", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:5.0685}}, aliases:["agricultural supplies standard","agricultural standard"] }
+        { id:"midvaal-bulk-lv", name:"Bulk Supplies - Low Voltage", customerClass:"Major Bulk", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.5474,demandPerKva:320.72}}, aliases:["bulk supplies low voltage","bulk low voltage"] },
+        { id:"midvaal-bulk-mv", name:"Bulk Supplies - Medium Voltage", customerClass:"Major Bulk", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:3.5725,demandPerKva:313.75}}, aliases:["bulk supplies medium voltage","bulk medium voltage"] },
+        { id:"midvaal-agricultural-standard", name:"Agricultural Supplies - Standard", customerClass:"Agricultural", effectiveFrom:"2026-07-01", effectiveTo:"2027-06-30", structure:{type:"flat",components:{energyPerKwh:5.0685}}, aliases:["agricultural supplies standard","agricultural standard"] }
       ]
     },
     citypower: {
@@ -60,30 +60,30 @@
   function rateSummary(tariff) {
     if (!tariff) return "";
     const s = tariff.structure || {};
-    if (s.type === "complex") return `Complex ${tariff.name} structure · voltage/zone/NMD parameters required`;
+    if (s.type === "complex") return `Complex ${tariff.name} structure | voltage/zone/NMD parameters required`;
     const bits = [];
     if (s.components?.energyPerKwh != null) bits.push(`Energy R${money(s.components.energyPerKwh)}/kWh`);
     if (s.components?.demandPerKva != null) bits.push(`Demand R${money(s.components.demandPerKva)}/kVA`);
     if (s.fixedMonthly != null) bits.push(`Fixed R${money(s.fixedMonthly)}/month`);
-    if (Array.isArray(s.blocks)) bits.push(s.blocks.map((b) => `${b.from}-${b.to ?? "+"} kWh: R${money(b.ratePerKwh)}`).join(" · "));
+    if (Array.isArray(s.blocks)) bits.push(s.blocks.map((b) => `${b.from}-${b.to ?? "+"} kWh: R${money(b.ratePerKwh)}`).join(" | "));
     if (s.seasons) {
       Object.entries(s.seasons).forEach(([season, data]) => {
         if (data.energyPerKwh != null) bits.push(`${season}: R${money(data.energyPerKwh)}/kWh`);
-        if (data.rates) bits.push(`${season}: peak R${money(data.rates.peak)} · standard R${money(data.rates.standard)} · off-peak R${money(data.rates.offPeak)}/kWh`);
+        if (data.rates) bits.push(`${season}: peak R${money(data.rates.peak)} | standard R${money(data.rates.standard)} | off-peak R${money(data.rates.offPeak)}/kWh`);
       });
     }
     if (s.exportRate != null) bits.push(`Export R${money(s.exportRate)}/kWh`);
-    return bits.join(" · ") || `${String(s.type || "Tariff")} structure`;
+    return bits.join(" | ") || `${String(s.type || "Tariff")} structure`;
   }
 
   function structureHtml(tariff) {
     if (!tariff) return `<span class="tariff-empty">Select a tariff to see its structure.</span>`;
     return `<div class="tariff-preview-grid">
-      <span><small>Customer class</small><strong>${esc(tariff.customerClass || "—")}</strong></span>
-      <span><small>Structure</small><strong>${esc(String(tariff.structure?.type || "—").replace(/-/g," "))}</strong></span>
-      <span><small>Effective</small><strong>${esc(dateLabel(tariff.effectiveFrom))} – ${esc(dateLabel(tariff.effectiveTo))}</strong></span>
+      <span><small>Customer class</small><strong>${esc(tariff.customerClass || "-")}</strong></span>
+      <span><small>Structure</small><strong>${esc(String(tariff.structure?.type || "-").replace(/-/g," "))}</strong></span>
+      <span><small>Effective</small><strong>${esc(dateLabel(tariff.effectiveFrom))} - ${esc(dateLabel(tariff.effectiveTo))}</strong></span>
       <span class="tariff-preview-wide"><small>Rates / components</small><strong>${esc(rateSummary(tariff))}</strong></span>
-      ${tariff.requirements?.length ? `<span class="tariff-preview-wide"><small>Additional billing inputs required</small><strong>${esc(tariff.requirements.join(" · "))}</strong></span>` : ""}
+      ${tariff.requirements?.length ? `<span class="tariff-preview-wide"><small>Additional billing inputs required</small><strong>${esc(tariff.requirements.join(" | "))}</strong></span>` : ""}
     </div>`;
   }
 
@@ -224,7 +224,7 @@
       const id = providerSelect.value; populate(id); status.textContent = "";
       if (id === "other") { hideLegacyFields(form,false); editor.querySelector("[data-tariff-preview]").innerHTML = `<span class="tariff-empty">Use the manual tariff fields below.</span>`; }
     });
-    tariffSelect.addEventListener("change", () => { const t = findTariff(providerSelect.value, tariffSelect.value); if (t) { applyTariff(form,providerSelect.value,t,"manual"); status.className="tariff-status ok"; status.textContent=`${CATALOG[providerSelect.value].provider} · ${t.name} selected.`; } });
+    tariffSelect.addEventListener("change", () => { const t = findTariff(providerSelect.value, tariffSelect.value); if (t) { applyTariff(form,providerSelect.value,t,"manual"); status.className="tariff-status ok"; status.textContent=`${CATALOG[providerSelect.value].provider} | ${t.name} selected.`; } });
 
     bill.addEventListener("change", async () => {
       const file = bill.files?.[0]; if (!file) return;

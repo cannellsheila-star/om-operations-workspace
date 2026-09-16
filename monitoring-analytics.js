@@ -43,7 +43,7 @@
 
   function timeLabel(value) {
     const date = parseTime(value);
-    if (!date) return String(value || "—");
+    if (!date) return String(value || "-");
     return date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
   }
 
@@ -55,7 +55,7 @@
     if (year && month && day) return new Date(year, month - 1, day).toLocaleDateString("en-ZA", { day: "2-digit", month: "short" });
     if (year && month) return new Date(year, month - 1, 1).toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
     if (year) return String(year);
-    return "—";
+    return "-";
   }
 
   function stationPowerRows(detail) {
@@ -166,7 +166,7 @@
         const key = `${device.deviceSn}|${input}`;
         if (!buckets.has(key)) buckets.set(key, { deviceSn: device.deviceSn, deviceType: device.deviceType, input, voltage: "", current: "", power: "", extras: [] });
         const row = buckets.get(key);
-        const formatted = `${metric.value ?? "—"}${metric.unit ? ` ${metric.unit}` : ""}`;
+        const formatted = `${metric.value ?? "-"}${metric.unit ? ` ${metric.unit}` : ""}`;
         if (/volt/i.test(text)) row.voltage = formatted;
         else if (/current|amp/i.test(text)) row.current = formatted;
         else if (/power/i.test(text)) row.power = formatted;
@@ -193,14 +193,14 @@
   function electricalTable(detail) {
     const strings = electricalRows(detail);
     const all = allElectricalMetrics(detail);
-    return `<section class="surface monitor-section ma-section" data-monitor-analytics="electrical"><div class="surface-title"><h3>String, MPPT, voltage & current detail</h3><span class="muted">Live values returned by Deye</span></div>${strings.length ? `<div class="ma-table"><div class="ma-table-head"><span>Device</span><span>Input / string</span><span>Voltage</span><span>Current</span><span>Power</span></div>${strings.map((r) => `<div class="ma-table-row"><span><strong>${escapeHtml(r.deviceType || "Device")}</strong><small>${escapeHtml(r.deviceSn)}</small></span><span>${escapeHtml(r.input)}</span><span>${escapeHtml(r.voltage || "—")}</span><span>${escapeHtml(r.current || "—")}</span><span>${escapeHtml(r.power || "—")}</span></div>`).join("")}</div>` : `<p class="monitor-empty">No PV/string voltage-current points were returned for these devices. The full electrical telemetry below still shows every voltage/current point Deye exposes.</p>`}<details class="ma-all-electrical"><summary>All electrical measurements · ${all.length}</summary><div class="device-metric-grid">${all.map((r) => `<div class="device-metric"><span>${escapeHtml(r.name)}</span><strong>${escapeHtml(r.value ?? "—")} ${escapeHtml(r.unit || "")}</strong><small>${escapeHtml(r.deviceType)} · ${escapeHtml(r.deviceSn)} · ${escapeHtml(r.key || "")}</small></div>`).join("")}</div></details></section>`;
+    return `<section class="surface monitor-section ma-section" data-monitor-analytics="electrical"><div class="surface-title"><h3>String, MPPT, voltage & current detail</h3><span class="muted">Live values returned by Deye</span></div>${strings.length ? `<div class="ma-table"><div class="ma-table-head"><span>Device</span><span>Input / string</span><span>Voltage</span><span>Current</span><span>Power</span></div>${strings.map((r) => `<div class="ma-table-row"><span><strong>${escapeHtml(r.deviceType || "Device")}</strong><small>${escapeHtml(r.deviceSn)}</small></span><span>${escapeHtml(r.input)}</span><span>${escapeHtml(r.voltage || "-")}</span><span>${escapeHtml(r.current || "-")}</span><span>${escapeHtml(r.power || "-")}</span></div>`).join("")}</div>` : `<p class="monitor-empty">No PV/string voltage-current points were returned for these devices. The full electrical telemetry below still shows every voltage/current point Deye exposes.</p>`}<details class="ma-all-electrical"><summary>All electrical measurements | ${all.length}</summary><div class="device-metric-grid">${all.map((r) => `<div class="device-metric"><span>${escapeHtml(r.name)}</span><strong>${escapeHtml(r.value ?? "-")} ${escapeHtml(r.unit || "")}</strong><small>${escapeHtml(r.deviceType)} | ${escapeHtml(r.deviceSn)} | ${escapeHtml(r.key || "")}</small></div>`).join("")}</div></details></section>`;
   }
 
   function chartsSection(system, detail) {
     const power = stationPowerRows(detail);
     const daily = dailyRows(detail);
     const capacity = number(system?.kwp ?? detail?.installedCapacityKw);
-    return `<section class="surface monitor-section ma-section" data-monitor-analytics="charts"><div class="surface-title"><h3>Performance curves</h3><span class="muted">Time-based power and energy history</span></div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>Power curve</h4><p>PV, load, grid and BESS power against time</p></div><strong>${power.length ? `${power.length} samples` : "No samples"}</strong></div>${lineChart(power, [{ key: "pv", label: "PV" }, { key: "load", label: "Load" }, { key: "grid", label: "Grid" }, { key: "charge", label: "BESS charge" }, { key: "discharge", label: "BESS discharge" }], "kW", "power")}</div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>BESS state of charge</h4><p>SOC against time</p></div><strong>${escapeHtml(detail?.batterySoc ?? "—")}% now</strong></div>${lineChart(power, [{ key: "soc", label: "SOC" }], "%", "soc", 0, 100)}</div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>Daily generation</h4><p>Energy produced per day${capacity !== null ? ` · Installed capacity ${escapeHtml(capacity.toLocaleString("en-ZA", { maximumFractionDigits: 2 }))} kWp` : ""}</p></div><strong>${daily.length} daily values</strong></div>${barChart(daily, "generation", "kWh")}</div></section>`;
+    return `<section class="surface monitor-section ma-section" data-monitor-analytics="charts"><div class="surface-title"><h3>Performance curves</h3><span class="muted">Time-based power and energy history</span></div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>Power curve</h4><p>PV, load, grid and BESS power against time</p></div><strong>${power.length ? `${power.length} samples` : "No samples"}</strong></div>${lineChart(power, [{ key: "pv", label: "PV" }, { key: "load", label: "Load" }, { key: "grid", label: "Grid" }, { key: "charge", label: "BESS charge" }, { key: "discharge", label: "BESS discharge" }], "kW", "power")}</div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>BESS state of charge</h4><p>SOC against time</p></div><strong>${escapeHtml(detail?.batterySoc ?? "-")}% now</strong></div>${lineChart(power, [{ key: "soc", label: "SOC" }], "%", "soc", 0, 100)}</div><div class="ma-chart-block"><div class="ma-chart-title"><div><h4>Daily generation</h4><p>Energy produced per day${capacity !== null ? ` | Installed capacity ${escapeHtml(capacity.toLocaleString("en-ZA", { maximumFractionDigits: 2 }))} kWp` : ""}</p></div><strong>${daily.length} daily values</strong></div>${barChart(daily, "generation", "kWh")}</div></section>`;
   }
 
   function flattenForExport(system, detail) {
