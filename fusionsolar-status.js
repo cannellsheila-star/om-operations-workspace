@@ -1,4 +1,12 @@
 (() => {
+  if (!document.querySelector('link[data-dev-ui]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'dev-ui.css?v=20260916-1';
+    link.dataset.devUi = '1';
+    document.head.appendChild(link);
+  }
+
   const baseRenderMonitoring = window.renderMonitoring;
 
   const esc = (value) => String(value ?? "")
@@ -17,7 +25,7 @@
     const style = document.createElement("style");
     style.id = "fusion-status-style";
     style.textContent = `
-      .fusion-status{margin:0 0 16px;padding:11px 14px;display:flex;align-items:center;gap:9px;border:1px solid rgba(220,38,38,.30);border-radius:9px;background:rgba(220,38,38,.05)}
+      .fusion-status{margin:0 0 16px;padding:11px 14px;display:flex;align-items:center;gap:9px;border:1px solid rgba(220,38,38,.30);border-radius:2px;background:rgba(220,38,38,.05)}
       .fusion-dot{width:9px;height:9px;border-radius:50%;background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12);flex:0 0 auto}
       .fusion-status-copy{display:grid;gap:2px}.fusion-status-copy strong{font-size:13px}.fusion-status-copy span{font-size:11px;color:#6b7280}
     `;
@@ -33,9 +41,6 @@
     const fusion = sharedFusion();
     const existing = document.getElementById("fusion-status-card");
 
-    // Healthy/connecting FusionSolar status is already represented by the
-    // combined portfolio monitoring summary. Keep this provider-specific card
-    // out of the way unless there is an actual connection problem.
     if (fusion.status !== "error") {
       existing?.remove();
       return;
