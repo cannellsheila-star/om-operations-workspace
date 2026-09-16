@@ -40,7 +40,7 @@
   function key() { return `${reportState.systemId}|${reportState.from}|${reportState.to}`; }
   function sum(rows, field) { const values=rows.map((r)=>num(r[field])).filter((v)=>v!==null); return values.length ? values.reduce((a,b)=>a+b,0) : null; }
   function parseTariffStructure(system) { try { return typeof system.tariffStructure==="string"?JSON.parse(system.tariffStructure||"{}"):system.tariffStructure||{}; } catch { return {}; } }
-  function parseMoneyValue(value) { const text=String(value||"").replace(/[^0-9,.-]/g,"").replace(/,/g,""); const n=Number(text); return Number.isFinite(n)?n:null; }
+  function parseMoneyValue(value) { const text=String(value||"").replace(/[^0-9,.-]/g,"").replace(/,/g,""); if(!text)return null; const n=Number(text); return Number.isFinite(n)?n:null; }
   function parsePerKwh(value) { return /kwh/i.test(String(value||"")) ? parseMoneyValue(value) : null; }
   function tariffReady(system) { return Boolean(system.tariffName && (system.tariffProvider || system.gridSupply)); }
 
