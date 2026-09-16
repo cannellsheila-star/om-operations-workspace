@@ -96,9 +96,20 @@
     document.body.appendChild(script);
   }
 
+  function startAutomaticMonitoringRefresh() {
+    if (window.__automaticMonitoringRefreshStarted) return;
+    window.__automaticMonitoringRefreshStarted = true;
+    setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (typeof refreshMonitoring !== 'function') return;
+      Promise.resolve(refreshMonitoring()).catch(() => {});
+    }, 5 * 60 * 1000);
+  }
+
   function loadMonitoringExtensions() {
     loadPortfolioMonitoringUi();
     loadSiteTicketManager();
+    startAutomaticMonitoringRefresh();
   }
 
   if (document.readyState === 'complete') loadMonitoringExtensions();
