@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "portfolio-live-v2-20260916";
+  const VERSION = "portfolio-live-v2-20260916-fusion-live";
 
   // app.js defines `systems` as a global lexical binding rather than a window
   // property. Provider overlays historically read window.systems. Expose the
@@ -7,7 +7,9 @@
   if (typeof systems !== "undefined" && Array.isArray(systems)) window.systems = systems;
 
   const baseRenderMonitoring = window.renderMonitoring;
+  const nativeFetch = window.fetch.bind(window);
   const filters = { search: "", provider: "all", status: "all", battery: "all" };
+  const fusionOverviewState = { loading: false, loaded: false, error: "" };
 
   const esc = (value) => String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -54,10 +56,14 @@
     document.head.appendChild(style);
   }
 
+  function isFusionSystem(system) {
+    return Array.isArray(system?.fusionSolarPlants) && system.fusionSolarPlants.length > 0;
+  }
+
   function exactTelemetry(system) {
     const feeds = typeof monitoringState !== "undefined" ? (monitoringState.data?.systems || []) : [];
     const exact = feeds.find((item) => String(item.systemId || "") === String(system.id));
-    if (exact) return exact;
+    if (exact && !exact._fusionSynthetic) return exact;
     const target = norm(system.name);
     return feeds.find((item) => !item._fusionSynthetic && norm(item.name) === target) || null;
   }
@@ -65,6 +71,90 @@
   function fusionDetail(system) {
     const cache = window.fusionSolarMonitoring?.detailCache;
     return cache instanceof Map ? cache.get(system.id) || null : null;
+  }
+
+  function fusionStore() {
+    return window.fusionSolarMonitoring || (window.fusionSolarMonitoring = { status: "idle", data: null, message: "", detailCache: new Map(), selectedPlant: new Map() });
+  }
+
+  function sumMetric(rows, key) {
+    const values = rows.map((row) => num(row?.[key])).filter((value) => value !== null);
+    return values.length ? values.reduce((total, value) => total + value, 0) : null;
+  }
+
+  function averageMetric(rows, key) {
+    const values = rows.map((row) => num(row?.[key])).filter((value) => value !== null);
+    return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+  }
+
+  function fusionCodesFor(system, portfolio) {
+    const wanted = new Set((system.fusionSolarPlants || []).map(norm));
+    return (portfolio?.systems || []).filter((plant) => wanted.has(norm(plant.name))).map((plant) => String(plant.providerStationId || plant.stationCode || "")).filter(Boolean);
+  }
+
+  function systemFusionDetail(detail, codes) {
+    const includesCode = (item) => codes.includes(String(item?.providerStationId || item?.stationCode || ""));
+    const plants = (detail?.plants || []).filter(includesCode);
+    const bessDevices = (detail?.bessDevices || []).filter(includesCode);
+    return {
+      fetchedAt: detail?.fetchedAt,
+      plants,
+      bessDevices,
+      aggregate: {
+        powerKw: sumMetric(plants, "powerKw"),
+        pvPowerKw: sumMetric(plants, "powerKw"),
+        consumptionPowerKw: sumMetric(plants, "consumptionPowerKw"),
+        loadPowerKw: sumMetric(plants, "loadPowerKw"),
+        gridPowerKw: sumMetric(plants, "gridPowerKw"),
+        gridImportPowerKw: sumMetric(plants, "gridImportPowerKw"),
+        gridExportPowerKw: sumMetric(plants, "gridExportPowerKw"),
+        batterySoc: averageMetric(bessDevices, "soc"),
+        chargePowerKw: sumMetric(bessDevices, "chargePowerKw"),
+        dischargePowerKw: sumMetric(bessDevices, "dischargePowerKw"),
+        alarmCount: null
+      }
+    };
+  }
+
+  async function loadFusionOverview() {
+    if (fusionOverviewState.loaded || fusionOverviewState.loading) return;
+    fusionOverviewState.loading = true;
+    try {
+      const store = fusionStore();
+      if (!(store.detailCache instanceof Map)) store.detailCache = new Map();
+      const headers = { Accept: "application/json" };
+      const portfolioResponse = await nativeFetch("/api/fusionsolar", { cache: "no-store", headers });
+      const portfolio = await portfolioResponse.json().catch(() => ({}));
+      if (!portfolioResponse.ok || portfolio.connected === false) throw new Error(portfolio.message || "FusionSolar portfolio could not be loaded.");
+      store.data = portfolio;
+      store.status = "ready";
+      const codes = [...new Set(workspaceSystems().filter(isFusionSystem).flatMap((system) => fusionCodesFor(system, portfolio)))];
+      if (codes.length) {
+        const detailResponse = await nativeFetch(`/api/fusionsolar?stationCodes=${encodeURIComponent(codes.join(","))}`, { cache: "no-store", headers });
+        const payload = await detailResponse.json().catch(() => ({}));
+        if (detailResponse.ok && payload.detail) {
+          workspaceSystems().filter(isFusionSystem).forEach((system) => {
+            const systemCodes = fusionCodesFor(system, portfolio);
+            if (systemCodes.length) store.detailCache.set(system.id, systemFusionDetail(payload.detail, systemCodes));
+          });
+        }
+      }
+      fusionOverviewState.loaded = true;
+      fusionOverviewState.error = "";
+    } catch (error) {
+      fusionOverviewState.error = error?.message || "FusionSolar portfolio could not be loaded.";
+    } finally {
+      fusionOverviewState.loading = false;
+      if (typeof state !== "undefined" && state.view === "monitoring") renderPortfolioLive();
+    }
+  }
+
+  function fusionStatus(detail) {
+    const statuses = (detail?.plants || []).map((plant) => String(plant.status || ""));
+    if (statuses.some((status) => status === "Non-operational")) return "Non-operational";
+    if (statuses.some((status) => status === "Attention required")) return "Attention required";
+    if (statuses.some((status) => status === "Operational")) return "Operational";
+    return "Not confirmed";
   }
 
   function providerLabel(system, telemetry) {
@@ -119,7 +209,7 @@
       const telemetry = exactTelemetry(system);
       const metrics = metricsFor(system, telemetry);
       const provider = providerLabel(system, telemetry);
-      const status = telemetry?.status || system.status || "Not confirmed";
+      const status = telemetry?.status || (isFusionSystem(system) ? fusionStatus(metrics.detail) : system.status) || system.status || "Not confirmed";
       return { system, telemetry, metrics, provider, status };
     });
   }
@@ -176,6 +266,7 @@
   function renderPortfolioLive() {
     if (typeof state === "undefined" || state.view !== "monitoring") return;
     installStyles();
+    loadFusionOverview();
     const allRows = rowsAll();
     const rows = filteredRows(allRows);
     const reporting = allRows.filter((row) => row.telemetry || row.metrics.detail || (row.provider === "FusionSolar" && window.fusionSolarMonitoring?.status === "ready"));
