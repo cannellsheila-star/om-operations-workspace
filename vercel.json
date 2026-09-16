@@ -2,28 +2,47 @@
   "cleanUrls": true,
   "functions": {
     "api/fusionsolar-sg5.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     },
     "api/fusionsolar.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     },
     "api/fusionsolar-range.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     },
     "api/fusionsolar-live-snapshot.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     },
     "api/fusionsolar-live.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     }
   },
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]
