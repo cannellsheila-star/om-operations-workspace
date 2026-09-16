@@ -5,6 +5,7 @@
   // One shared poller only. Huawei rate-limits realtime device data, so the
   // snapshot endpoint rotates device types and persists the last good values.
   const INTERVAL_MS = 110 * 1000;
+  const LAST_GOOD_KEY = "om-fusionsolar-live-last-good-v1";
 
   const num = (value) => {
     if (value === null || value === undefined || value === "") return null;
@@ -67,6 +68,56 @@
     return existing;
   }
 
+  function readLastGood() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(LAST_GOOD_KEY) || "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function seedLastGoodBess(system) {
+    const cached = readLastGood()?.[system.id];
+    const metrics = cached?.metrics;
+    if (!metrics) return;
+
+    const detail = ensureDetail(system);
+    if (!detail) return;
+    const aggregate = detail.aggregate || (detail.aggregate = {});
+
+    // This fallback restores only the BESS values that were working before the
+    // poller change. It never writes PV, load or grid values, so stale browser
+    // cache cannot contaminate the other live metrics.
+    let seeded = false;
+    const soc = num(metrics.soc);
+    const charge = num(metrics.charge);
+    const discharge = num(metrics.discharge);
+
+    if (num(aggregate.batterySoc) === null && soc !== null) {
+      aggregate.batterySoc = soc;
+      seeded = true;
+    }
+    if (num(aggregate.chargePowerKw) === null && charge !== null) {
+      aggregate.chargePowerKw = charge;
+      seeded = true;
+    }
+    if (num(aggregate.dischargePowerKw) === null && discharge !== null) {
+      aggregate.dischargePowerKw = discharge;
+      seeded = true;
+    }
+    if (num(aggregate.batteryPowerKw) === null && (charge !== null || discharge !== null)) {
+      aggregate.batteryPowerKw = (charge || 0) - (discharge || 0);
+      seeded = true;
+    }
+
+    if (seeded) {
+      detail.bessSampleSource = "last-good-browser-cache";
+      detail.bessSampleAt = cached.savedAt || null;
+      store().detailCache.set(system.id, detail);
+    }
+  }
+
   function seedPortfolioPower(system, portfolio) {
     const detail = ensureDetail(system);
     if (!detail) return;
@@ -87,9 +138,6 @@
     if (!existing) return;
     const aggregate = existing.aggregate;
 
-    // PV can come from either the snapshot or the already-loaded verified
-    // station portfolio. This prevents the overview from showing a blank PV
-    // while the device-level realtime cache is rotating through device types.
     const snapshotPv = sumKnown(rows.map((row) => row.pvKw));
     const pv = snapshotPv !== null ? snapshotPv : portfolioPv(system, portfolio);
     const gridImport = sumKnown(rows.map((row) => row.importKw));
@@ -99,8 +147,6 @@
     const discharge = sumKnown(rows.map((row) => row.dischargeKw));
     let load = sumKnown(rows.map((row) => row.loadKw));
 
-    // Once grid and BESS power are known, calculate demand from the power
-    // balance if Huawei did not return a direct load sample.
     if (load === null && pv !== null && gridImport !== null && gridExport !== null) {
       load = Math.max(0, pv + gridImport + (discharge || 0) - gridExport - (charge || 0));
     }
@@ -125,6 +171,11 @@
       aggregate.batteryPowerKw = (charge || 0) - (discharge || 0);
     }
 
+    if (soc !== null || charge !== null || discharge !== null) {
+      existing.bessSampleSource = "live-snapshot";
+      existing.bessSampleAt = rows.map((row) => row.sampleAt).filter(Boolean).sort().at(-1) || payload.fetchedAt || null;
+    }
+
     const sampleTimes = rows
       .map((row) => row.sampleAt)
       .filter(Boolean)
@@ -139,9 +190,24 @@
     fusion.detailCache.set(system.id, existing);
   }
 
+  function markBessFallbackRows() {
+    const fusion = store();
+    if (!(fusion?.detailCache instanceof Map)) return;
+    for (const system of workspaceSystems()) {
+      const detail = fusion.detailCache.get(system.id);
+      if (detail?.bessSampleSource !== "last-good-browser-cache") continue;
+      const row = document.querySelector(`.plive-row[data-smv2-open="${CSS.escape(String(system.id))}"]`);
+      const small = row?.children?.[6]?.querySelector?.(".plive-battmeta small");
+      if (small && !small.textContent.includes("last good")) {
+        small.textContent = `${small.textContent || "BESS"} | last good`;
+      }
+    }
+  }
+
   function renderIfMonitoring() {
     if (typeof renderMonitoring === "function" && typeof state !== "undefined" && state.view === "monitoring") {
       renderMonitoring();
+      setTimeout(markBessFallbackRows, 0);
     }
   }
 
@@ -158,8 +224,10 @@
       (system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length
     );
 
-    // Show any verified station-level PV immediately, before waiting for the
-    // device snapshot rotation.
+    // Restore only the previously verified BESS values while Huawei is
+    // throttling device discovery, then let fresh snapshot values replace them
+    // automatically as soon as the API permits them again.
+    fusionSystems.forEach(seedLastGoodBess);
     fusionSystems.forEach((system) => seedPortfolioPower(system, portfolio));
     renderIfMonitoring();
 
@@ -188,5 +256,6 @@
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refresh();
   });
+  setInterval(markBessFallbackRows, 1500);
   setTimeout(refresh, 1800);
 })();
