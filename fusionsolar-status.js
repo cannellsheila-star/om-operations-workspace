@@ -86,6 +86,21 @@
     script.async = false;
     document.body.appendChild(script);
   }
-  if (document.readyState === 'complete') loadPortfolioMonitoringUi();
-  else window.addEventListener('load', loadPortfolioMonitoringUi, { once: true });
+
+  function loadSiteTicketManager() {
+    if (document.querySelector('script[data-site-monitoring-tickets]')) return;
+    const script = document.createElement('script');
+    script.src = 'monitoring-site-ticketing.js?v=20260916-1';
+    script.dataset.siteMonitoringTickets = '1';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
+  function loadMonitoringExtensions() {
+    loadPortfolioMonitoringUi();
+    loadSiteTicketManager();
+  }
+
+  if (document.readyState === 'complete') loadMonitoringExtensions();
+  else window.addEventListener('load', loadMonitoringExtensions, { once: true });
 })();
