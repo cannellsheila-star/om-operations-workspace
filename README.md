@@ -1,25 +1,7 @@
-**Blue Energy Africa O&M Workspace**
+# Blue Energy Africa O&M
 
-Internal operations workspace for Blue Energy Africa.
+Operations, maintenance and monitoring for the solar portfolio.
 
-**Functions**
+The workspace includes the system register, tickets, maintenance planning, documents, monitoring and reports.
 
-- System register
-- Live monitoring
-- Tickets
-- Preventive maintenance
-- Tariffs and electricity bills
-- Savings, performance and alarm reports
-- Document records
-
-**Monitoring**
-
-Deye Cloud and Huawei FusionSolar are connected through their monitoring APIs.
-
-**Storage**
-
-Workspace records and uploaded bills are stored in Vercel Blob.
-
-**Deployment**
-
-Hosted on Vercel from the `main` branch.
+Deploy through Vercel. No build command is required.
