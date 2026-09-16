@@ -1,5 +1,11 @@
 (() => {
-  const VERSION = "portfolio-live-v1-20260916";
+  const VERSION = "portfolio-live-v2-20260916";
+
+  // app.js defines `systems` as a global lexical binding rather than a window
+  // property. Provider overlays historically read window.systems. Expose the
+  // same live array once so every monitoring layer sees the real workspace.
+  if (typeof systems !== "undefined" && Array.isArray(systems)) window.systems = systems;
+
   const baseRenderMonitoring = window.renderMonitoring;
   const filters = { search: "", provider: "all", status: "all", battery: "all" };
 
@@ -11,6 +17,10 @@
     .replace(/'/g, "&#039;");
   const num = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
   const norm = (value) => String(value || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+  const fmt = (value, unit = "", digits = 1) => {
+    const n = num(value);
+    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
+  };
   const firstNum = (...values) => {
     for (const value of values) {
       const n = num(value);
@@ -18,31 +28,28 @@
     }
     return null;
   };
-  const fmt = (value, unit = "", digits = 1) => {
-    const n = num(value);
-    return n === null ? "—" : `${n.toLocaleString("en-ZA", { maximumFractionDigits: digits })}${unit ? ` ${unit}` : ""}`;
-  };
+
+  function workspaceSystems() {
+    return typeof systems !== "undefined" && Array.isArray(systems) ? systems : (Array.isArray(window.systems) ? window.systems : []);
+  }
 
   function installStyles() {
     if (document.getElementById("portfolio-live-style")) return;
     const style = document.createElement("style");
     style.id = "portfolio-live-style";
     style.textContent = `
-      .plive-toolbar{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(3,minmax(150px,.8fr));gap:10px;margin:0 0 12px;padding:14px;border:1px solid var(--line,#e1e5eb);border-radius:12px;background:linear-gradient(180deg,#fff,#fbfcfe)}
-      .plive-field{display:grid;gap:5px}.plive-field label{font-size:10px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;color:#697386}.plive-field input,.plive-field select{height:39px;width:100%;border:1px solid var(--line,#d8dde6);border-radius:8px;background:#fff;color:inherit;padding:0 10px;font:inherit;outline:none}.plive-field input:focus,.plive-field select:focus{border-color:#334155;box-shadow:0 0 0 2px rgba(51,65,85,.08)}
+      .plive-toolbar{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(3,minmax(150px,.8fr));gap:10px;margin:0 0 12px;padding:14px;border:1px solid var(--line,#e1e5eb);border-radius:12px;background:#fff}
+      .plive-field{display:grid;gap:5px}.plive-field label{font-size:10px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;color:#697386}.plive-field input,.plive-field select{height:39px;width:100%;border:1px solid var(--line,#d8dde6);border-radius:8px;background:#fff;color:inherit;padding:0 10px;font:inherit;outline:none}
       .plive-wrap{border:1px solid var(--line,#e1e5eb);border-radius:12px;background:#fff;overflow:auto;box-shadow:0 6px 20px rgba(15,23,42,.035)}
       .plive-table{min-width:1180px}.plive-head,.plive-row{display:grid;grid-template-columns:minmax(215px,1.65fr) 155px 110px 140px 125px 145px 210px 78px;gap:12px;align-items:center;padding:11px 15px}
       .plive-head{position:sticky;top:0;z-index:2;background:#f6f8fb;border-bottom:1px solid var(--line,#dde2ea);font-size:10px;text-transform:uppercase;letter-spacing:.055em;font-weight:800;color:#667085}
-      .plive-row{width:100%;min-height:72px;border:0;border-bottom:1px solid var(--line,#edf0f4);background:#fff;color:inherit;text-align:left;font:inherit;cursor:pointer;transition:background .14s ease,box-shadow .14s ease}.plive-row:last-child{border-bottom:0}.plive-row:hover{background:#f9fbfd;box-shadow:inset 3px 0 0 #334155}
+      .plive-row{width:100%;min-height:72px;border:0;border-bottom:1px solid var(--line,#edf0f4);background:#fff;color:inherit;text-align:left;font:inherit;cursor:pointer;transition:background .14s ease,box-shadow .14s ease}.plive-row:last-child{border-bottom:0}.plive-row:hover{background:#f9fbfd;box-shadow:inset 3px 0 0 #172554}
       .plive-site{display:grid;gap:3px}.plive-site strong{font-size:14px}.plive-site small,.plive-muted{font-size:10px;color:#7b8493}.plive-source{display:inline-flex;width:max-content;max-width:100%;padding:4px 8px;border-radius:999px;background:#eef2f6;color:#3f4a5a;font-size:10px;font-weight:750}
       .plive-status{display:grid;gap:4px}.plive-status-main{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:750}.plive-dot{width:8px;height:8px;border-radius:50%;background:#98a2b3}.plive-dot.live{background:#12966f}.plive-dot.warn{background:#d28a18}.plive-dot.bad{background:#c94242}.plive-age{font-size:10px;color:#7b8493}
       .plive-metric{display:grid;gap:3px}.plive-metric strong{font-size:13px}.plive-metric small{font-size:10px;color:#7b8493}.plive-gridflow{font-weight:750;font-size:12px}.plive-gridflow.import{color:#7c3f18}.plive-gridflow.export{color:#08745a}.plive-gridflow.neutral{color:#667085}
-      .plive-battery{display:grid;grid-template-columns:54px 1fr;gap:9px;align-items:center}.plive-soc{display:grid;gap:4px}.plive-soc strong{font-size:12px}.plive-socbar{height:6px;border-radius:999px;background:#edf0f4;overflow:hidden}.plive-socbar i{display:block;height:100%;border-radius:999px;background:#3d6f9c}.plive-battmeta{display:grid;gap:2px}.plive-battmeta strong{font-size:11px}.plive-battmeta small{font-size:10px;color:#7b8493}
-      .plive-alarm{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:9px;background:#f3f5f7;font-size:11px;font-weight:800}.plive-alarm.hot{background:#fff0ec;color:#b33b28}
-      .plive-empty{padding:28px;text-align:center;color:#7b8493}
-      .plive-summary-note{font-size:11px;color:#697386;margin-top:2px}
-      @media(max-width:900px){.plive-toolbar{grid-template-columns:1fr 1fr}.plive-field:first-child{grid-column:1/-1}}
-      @media(max-width:600px){.plive-toolbar{grid-template-columns:1fr}.plive-field:first-child{grid-column:auto}}
+      .plive-battery{display:grid;grid-template-columns:54px 1fr;gap:9px;align-items:center}.plive-soc{display:grid;gap:4px}.plive-soc strong{font-size:12px}.plive-socbar{height:6px;border-radius:999px;background:#edf0f4;overflow:hidden}.plive-socbar i{display:block;height:100%;border-radius:999px;background:#315f8c}.plive-battmeta{display:grid;gap:2px}.plive-battmeta strong{font-size:11px}.plive-battmeta small{font-size:10px;color:#7b8493}
+      .plive-alarm{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:9px;background:#f3f5f7;font-size:11px;font-weight:800}.plive-alarm.hot{background:#fff0ec;color:#b33b28}.plive-empty{padding:28px;text-align:center;color:#7b8493}
+      @media(max-width:900px){.plive-toolbar{grid-template-columns:1fr 1fr}.plive-field:first-child{grid-column:1/-1}}@media(max-width:600px){.plive-toolbar{grid-template-columns:1fr}.plive-field:first-child{grid-column:auto}}
     `;
     document.head.appendChild(style);
   }
@@ -103,8 +110,30 @@
     const batteryPower = firstNum(telemetry?.batteryPowerKw, agg.batteryPowerKw, charge !== null || discharge !== null ? (charge || 0) - (discharge || 0) : null);
     const alarmDirect = Array.isArray(telemetry?.activeAlerts) ? telemetry.activeAlerts.length : null;
     const alarms = firstNum(alarmDirect, agg.alarmCount, Array.isArray(detail?.alarms) ? detail.alarms.length : null);
-    const hasBattery = soc !== null || charge !== null || discharge !== null || num(system.kwh) !== null;
+    const hasBattery = soc !== null || charge !== null || discharge !== null || (num(system.kwh) !== null && num(system.kwh) > 0);
     return { detail, pv, load, gridNet, gridImport, gridExport, soc, charge, discharge, batteryPower, alarms, hasBattery };
+  }
+
+  function rowsAll() {
+    return workspaceSystems().map((system) => {
+      const telemetry = exactTelemetry(system);
+      const metrics = metricsFor(system, telemetry);
+      const provider = providerLabel(system, telemetry);
+      const status = telemetry?.status || system.status || "Not confirmed";
+      return { system, telemetry, metrics, provider, status };
+    });
+  }
+
+  function filteredRows(allRows) {
+    const search = norm(filters.search);
+    return allRows.filter((row) => {
+      if (search && !norm(`${row.system.name} ${row.system.id} ${row.provider}`).includes(search)) return false;
+      if (filters.provider !== "all" && row.provider !== filters.provider) return false;
+      if (filters.status !== "all" && statusClass(row.status) !== filters.status) return false;
+      if (filters.battery === "yes" && !row.metrics.hasBattery) return false;
+      if (filters.battery === "no" && row.metrics.hasBattery) return false;
+      return true;
+    });
   }
 
   function gridDisplay(metrics) {
@@ -116,37 +145,16 @@
 
   function batteryDisplay(metrics) {
     if (!metrics.hasBattery) return `<span class="plive-muted">No BESS</span>`;
-    const soc = metrics.soc;
-    const width = soc === null ? 0 : Math.max(0, Math.min(100, soc));
-    let direction = "Idle";
-    let power = metrics.batteryPower;
+    const width = metrics.soc === null ? 0 : Math.max(0, Math.min(100, metrics.soc));
+    let direction = "Idle", power = metrics.batteryPower;
     if (metrics.charge !== null && metrics.charge > 0.01) { direction = "Charging"; power = metrics.charge; }
     else if (metrics.discharge !== null && metrics.discharge > 0.01) { direction = "Discharging"; power = metrics.discharge; }
     else if (power !== null && Math.abs(power) > 0.01) direction = power > 0 ? "Charging" : "Discharging";
-    return `<span class="plive-battery"><span class="plive-soc"><strong>${fmt(soc, "%", 0)}</strong><span class="plive-socbar"><i style="width:${width}%"></i></span></span><span class="plive-battmeta"><strong>${esc(direction)}</strong><small>${power === null ? "Power unavailable" : fmt(Math.abs(power), "kW", 1)}</small></span></span>`;
+    return `<span class="plive-battery"><span class="plive-soc"><strong>${fmt(metrics.soc, "%", 0)}</strong><span class="plive-socbar"><i style="width:${width}%"></i></span></span><span class="plive-battmeta"><strong>${esc(direction)}</strong><small>${power === null ? "Power unavailable" : fmt(Math.abs(power), "kW", 1)}</small></span></span>`;
   }
 
-  function filteredRows() {
-    const rows = (window.systems || []).map((system) => {
-      const telemetry = exactTelemetry(system);
-      const metrics = metricsFor(system, telemetry);
-      const provider = providerLabel(system, telemetry);
-      const status = telemetry?.status || system.status || "Not confirmed";
-      return { system, telemetry, metrics, provider, status };
-    });
-    return rows.filter((row) => {
-      const search = norm(filters.search);
-      if (search && !norm(`${row.system.name} ${row.system.id} ${row.provider}`).includes(search)) return false;
-      if (filters.provider !== "all" && row.provider !== filters.provider) return false;
-      if (filters.status !== "all" && statusClass(row.status) !== filters.status) return false;
-      if (filters.battery === "yes" && !row.metrics.hasBattery) return false;
-      if (filters.battery === "no" && row.metrics.hasBattery) return false;
-      return true;
-    });
-  }
-
-  function toolbarHtml(rows) {
-    const providers = [...new Set(rows.map((row) => row.provider).filter(Boolean))].sort();
+  function toolbarHtml(allRows) {
+    const providers = [...new Set(allRows.map((row) => row.provider).filter(Boolean))].sort();
     return `<div class="plive-toolbar" data-plive-toolbar>
       <div class="plive-field"><label>Find site</label><input type="search" data-plive-filter="search" value="${esc(filters.search)}" placeholder="Search site or system ID"></div>
       <div class="plive-field"><label>Monitoring source</label><select data-plive-filter="provider"><option value="all">All sources</option>${providers.map((provider) => `<option value="${esc(provider)}" ${filters.provider === provider ? "selected" : ""}>${esc(provider)}</option>`).join("")}</select></div>
@@ -157,93 +165,59 @@
 
   function tableHtml(rows) {
     if (!rows.length) return `<div class="plive-wrap"><div class="plive-empty">No sites match these filters.</div></div>`;
-    return `<div class="plive-wrap"><div class="plive-table">
-      <div class="plive-head"><span>Site</span><span>Status / last data</span><span>Source</span><span>PV output</span><span>Load</span><span>Grid flow</span><span>Battery</span><span>Alarms</span></div>
-      ${rows.map(({ system, telemetry, metrics, provider, status }) => {
-        const grid = gridDisplay(metrics);
-        const age = ageLabel(signalTime(telemetry, metrics.detail));
-        const pvPct = metrics.pv !== null && num(system.kwp) ? Math.max(0, (metrics.pv / Number(system.kwp)) * 100) : null;
-        const alarmCount = metrics.alarms === null ? null : Math.max(0, Math.round(metrics.alarms));
-        return `<button class="plive-row" type="button" data-smv2-open="${esc(system.id)}">
-          <span class="plive-site"><strong>${esc(system.name)}</strong><small>${esc(system.id)} · ${fmt(system.kwp, "kWp", 1)}${num(system.kwh) ? ` · ${fmt(system.kwh, "kWh", 0)} BESS` : ""}</small></span>
-          <span class="plive-status"><span class="plive-status-main"><i class="plive-dot ${statusClass(status)}"></i>${esc(status)}</span><span class="plive-age">${esc(age)}</span></span>
-          <span><span class="plive-source">${esc(provider)}</span></span>
-          <span class="plive-metric"><strong>${fmt(metrics.pv, "kW", 1)}</strong><small>${pvPct === null ? "Live PV" : `${pvPct.toLocaleString("en-ZA", { maximumFractionDigits: 1 })}% of installed`}</small></span>
-          <span class="plive-metric"><strong>${fmt(metrics.load, "kW", 1)}</strong><small>Site demand</small></span>
-          <span class="plive-metric"><strong class="plive-gridflow ${grid.cls}">${esc(grid.text)}</strong><small>${esc(grid.sub)}</small></span>
-          ${batteryDisplay(metrics)}
-          <span><span class="plive-alarm ${alarmCount > 0 ? "hot" : ""}">${alarmCount === null ? "—" : alarmCount}</span></span>
-        </button>`;
-      }).join("")}
-    </div></div>`;
+    return `<div class="plive-wrap"><div class="plive-table"><div class="plive-head"><span>Site</span><span>Status / last data</span><span>Source</span><span>PV output</span><span>Load</span><span>Grid flow</span><span>Battery</span><span>Alarms</span></div>${rows.map(({ system, telemetry, metrics, provider, status }) => {
+      const grid = gridDisplay(metrics);
+      const age = ageLabel(signalTime(telemetry, metrics.detail));
+      const alarmCount = metrics.alarms === null ? null : Math.max(0, Math.round(metrics.alarms));
+      return `<button class="plive-row" type="button" data-smv2-open="${esc(system.id)}"><span class="plive-site"><strong>${esc(system.name)}</strong><small>${esc(system.id)} · ${fmt(system.kwp, "kWp", 1)}${num(system.kwh) > 0 ? ` · ${fmt(system.kwh, "kWh", 0)} BESS` : ""}</small></span><span class="plive-status"><span class="plive-status-main"><i class="plive-dot ${statusClass(status)}"></i>${esc(status)}</span><span class="plive-age">${esc(age)}</span></span><span><span class="plive-source">${esc(provider)}</span></span><span class="plive-metric"><strong>${fmt(metrics.pv, "kW", 1)}</strong><small>Live PV</small></span><span class="plive-metric"><strong>${fmt(metrics.load, "kW", 1)}</strong><small>Site demand</small></span><span class="plive-metric"><strong class="plive-gridflow ${grid.cls}">${esc(grid.text)}</strong><small>${esc(grid.sub)}</small></span><span>${batteryDisplay(metrics)}</span><span><span class="plive-alarm ${alarmCount > 0 ? "hot" : ""}">${alarmCount === null ? "—" : alarmCount}</span></span></button>`;
+    }).join("")}</div></div>`;
   }
 
   function renderPortfolioLive() {
     if (typeof state === "undefined" || state.view !== "monitoring") return;
-    const root = document.getElementById("app-view");
-    if (!root) return;
     installStyles();
+    const allRows = rowsAll();
+    const rows = filteredRows(allRows);
+    const reporting = allRows.filter((row) => row.telemetry || row.metrics.detail || (row.provider === "FusionSolar" && window.fusionSolarMonitoring?.status === "ready"));
+    const operational = allRows.filter((row) => statusClass(row.status) === "live").length;
+    const bessSites = allRows.filter((row) => row.metrics.hasBattery).length;
+    const alarms = allRows.reduce((sum, row) => sum + (row.metrics.alarms || 0), 0);
 
-    const all = (window.systems || []).map((system) => {
-      const telemetry = exactTelemetry(system);
-      return { system, telemetry, metrics: metricsFor(system, telemetry), provider: providerLabel(system, telemetry), status: telemetry?.status || system.status || "Not confirmed" };
-    });
-    const rows = filteredRows();
+    const stats = document.querySelector(".monitoring-stat-grid");
+    if (stats) stats.innerHTML = `
+      <article class="stat-card"><span>Reporting now</span><strong>${reporting.length}/${allRows.length}</strong><span>Sites with live monitoring data</span></article>
+      <article class="stat-card"><span>Operational</span><strong>${operational}</strong><span>Current site status</span></article>
+      <article class="stat-card"><span>BESS sites</span><strong>${bessSites}</strong><span>Battery-enabled systems</span></article>
+      <article class="stat-card"><span>Active alarms</span><strong>${Math.round(alarms)}</strong><span>Across connected monitoring sources</span></article>`;
 
-    const sectionHeader = [...root.querySelectorAll(".section-header")].find((node) => node.querySelector("h2")?.textContent?.trim() === "Site performance");
-    if (sectionHeader) {
-      const muted = sectionHeader.querySelector(".muted");
-      if (muted) muted.textContent = "Live portfolio view · click a site for detailed kW, kWh, SOC and device analysis";
-    }
+    const sectionHeader = [...document.querySelectorAll(".section-header")].find((node) => node.querySelector("h2")?.textContent?.trim() === "Site performance");
+    if (!sectionHeader) return;
+    const oldTable = document.querySelector(".smv2-table, .monitoring-table, .plive-wrap");
+    let toolbar = document.querySelector("[data-plive-toolbar]");
+    if (!toolbar) sectionHeader.insertAdjacentHTML("afterend", toolbarHtml(allRows));
+    else toolbar.outerHTML = toolbarHtml(allRows);
 
-    const existingToolbar = root.querySelector("[data-plive-toolbar]");
-    const oldTable = root.querySelector(".smv2-table, .plive-wrap");
-    if (!oldTable) return;
-    if (existingToolbar) existingToolbar.remove();
-    oldTable.insertAdjacentHTML("beforebegin", toolbarHtml(all));
-    const holder = document.createElement("div");
-    holder.innerHTML = tableHtml(rows);
-    oldTable.replaceWith(holder.firstElementChild);
-
-    const statGrid = root.querySelector(".monitoring-stat-grid");
-    if (statGrid) {
-      const liveCount = all.filter((row) => statusClass(row.status) === "live").length;
-      const reporting = all.filter((row) => row.telemetry || row.metrics.detail).length;
-      const alarmTotal = all.map((row) => row.metrics.alarms).filter((v) => v !== null).reduce((a, b) => a + b, 0);
-      const bessCount = all.filter((row) => row.metrics.hasBattery).length;
-      statGrid.innerHTML = `
-        <article class="stat-card"><span>Reporting now</span><strong>${reporting}/${all.length}</strong><span class="plive-summary-note">Sites with live monitoring data</span></article>
-        <article class="stat-card"><span>Operational</span><strong>${liveCount}</strong><span class="plive-summary-note">Current site status</span></article>
-        <article class="stat-card"><span>BESS sites</span><strong>${bessCount}</strong><span class="plive-summary-note">Battery-enabled systems</span></article>
-        <article class="stat-card"><span>Active alarms</span><strong>${alarmTotal}</strong><span class="plive-summary-note">Across connected monitoring sources</span></article>`;
-    }
+    const currentTable = document.querySelector(".smv2-table, .monitoring-table, .plive-wrap");
+    if (currentTable) currentTable.outerHTML = tableHtml(rows);
+    else document.querySelector("[data-plive-toolbar]")?.insertAdjacentHTML("afterend", tableHtml(rows));
   }
 
-  if (typeof baseRenderMonitoring === "function") {
-    window.renderMonitoring = function renderMonitoringWithPortfolioLive(...args) {
-      const result = baseRenderMonitoring.apply(this, args);
-      renderPortfolioLive();
-      return result;
-    };
-    try { renderMonitoring = window.renderMonitoring; } catch {}
-  }
+  window.renderMonitoring = function portfolioRenderMonitoring(...args) {
+    const result = baseRenderMonitoring.apply(this, args);
+    renderPortfolioLive();
+    return result;
+  };
+  try { renderMonitoring = window.renderMonitoring; } catch {}
 
   document.addEventListener("input", (event) => {
-    const field = event.target.closest?.("[data-plive-filter]");
-    if (!field) return;
-    filters[field.dataset.pliveFilter] = field.value;
+    if (!event.target.matches?.("[data-plive-filter='search']")) return;
+    filters.search = event.target.value;
     renderPortfolioLive();
   });
   document.addEventListener("change", (event) => {
-    const field = event.target.closest?.("[data-plive-filter]");
-    if (!field) return;
-    filters[field.dataset.pliveFilter] = field.value;
+    const key = event.target.dataset?.pliveFilter;
+    if (!key || key === "search") return;
+    filters[key] = event.target.value;
     renderPortfolioLive();
   });
-
-  setInterval(() => {
-    if (typeof state !== "undefined" && state.view === "monitoring" && document.querySelector(".plive-wrap")) renderPortfolioLive();
-  }, 30000);
-
-  if (typeof state !== "undefined" && state.view === "monitoring") renderPortfolioLive();
 })();
