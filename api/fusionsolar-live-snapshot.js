@@ -3,7 +3,7 @@ const crypto = require("crypto");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusion-live-snapshot-v1-20260916";
+const VERSION = "fusion-live-snapshot-v2-20260916";
 const CACHE_PATH = "om-workspace/fusionsolar/live-snapshot.json";
 const SESSION_PATH = "om-workspace/fusionsolar/live-snapshot-session.json";
 const SESSION_TTL_MS = 25 * 60 * 1000;
@@ -78,8 +78,9 @@ function requestJson(path, body = {}, headers = {}) {
       response.on("data", (chunk) => { text += chunk; });
       response.on("end", () => {
         let json = {};
-        try { json = text ? JSON.parse(text) : {}; }
-        catch {
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
           const error = new Error(`FusionSolar returned non-JSON data at ${path}.`);
           error.httpStatus = Number(response.statusCode || 0);
           reject(error);
@@ -128,19 +129,10 @@ function cookieValue(cookie, name) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-async function login() {
+async function createSession() {
   const userName = clean(process.env.FUSIONSOLAR_USERNAME);
   const systemCode = clean(process.env.FUSIONSOLAR_SYSTEM_CODE);
   if (!userName || !systemCode) return null;
-
-  if (memorySession && Date.now() < memorySessionExpiresAt - SESSION_MARGIN_MS) return memorySession;
-
-  const stored = await readBlob(SESSION_PATH);
-  if (stored?.token && stored.fingerprint === fingerprint() && Date.now() < Number(stored.expiresAt || 0) - SESSION_MARGIN_MS) {
-    memorySession = { token: clean(stored.token), cookie: clean(stored.cookie) };
-    memorySessionExpiresAt = Number(stored.expiresAt);
-    return memorySession;
-  }
 
   const result = await requestJson("/login", { userName, systemCode });
   validate(result, "/login");
@@ -160,6 +152,27 @@ async function login() {
   return memorySession;
 }
 
+async function login(force = false) {
+  const userName = clean(process.env.FUSIONSOLAR_USERNAME);
+  const systemCode = clean(process.env.FUSIONSOLAR_SYSTEM_CODE);
+  if (!userName || !systemCode) return null;
+
+  if (!force && memorySession && Date.now() < memorySessionExpiresAt - SESSION_MARGIN_MS) {
+    return memorySession;
+  }
+
+  if (!force) {
+    const stored = await readBlob(SESSION_PATH);
+    if (stored?.token && stored.fingerprint === fingerprint() && Date.now() < Number(stored.expiresAt || 0) - SESSION_MARGIN_MS) {
+      memorySession = { token: clean(stored.token), cookie: clean(stored.cookie) };
+      memorySessionExpiresAt = Number(stored.expiresAt);
+      return memorySession;
+    }
+  }
+
+  return createSession();
+}
+
 async function call(session, path, body = {}) {
   const result = await requestJson(path, body, {
     "XSRF-TOKEN": session.token,
@@ -168,10 +181,18 @@ async function call(session, path, body = {}) {
   return validate(result, path);
 }
 
-async function safeCall(session, path, body = {}) {
+async function safeCall(sessionRef, path, body = {}) {
   try {
-    return { ok: true, payload: await call(session, path, body), path };
+    return { ok: true, payload: await call(sessionRef.current, path, body), path };
   } catch (error) {
+    if (Number(error?.failCode) === 305) {
+      try {
+        sessionRef.current = await login(true);
+        return { ok: true, payload: await call(sessionRef.current, path, body), path, relogged: true };
+      } catch (retryError) {
+        return { ok: false, error: String(retryError.message || retryError), failCode: retryError.failCode ?? null, path, relogged: true };
+      }
+    }
     return { ok: false, error: String(error.message || error), failCode: error.failCode ?? null, path };
   }
 }
@@ -197,18 +218,26 @@ function metricValue(values, keys) {
   return null;
 }
 
+function scaleMeterPower(value) {
+  const parsed = numberOrNull(value);
+  if (parsed === null) return null;
+  return Math.abs(parsed) > 10000 ? parsed / 1000 : parsed;
+}
+
 function emptyCache() {
-  return { version: 1, inventoryAt: 0, devices: [], realtime: {}, updatedAt: null };
+  return { version: 2, inventoryAt: 0, devices: [], realtime: {}, updatedAt: null };
 }
 
 async function loadCache() {
   if (memoryCache) return memoryCache;
   memoryCache = await readBlob(CACHE_PATH) || emptyCache();
+  if (!memoryCache.realtime || typeof memoryCache.realtime !== "object") memoryCache.realtime = {};
   return memoryCache;
 }
 
 async function saveCache(cache) {
   cache.updatedAt = new Date().toISOString();
+  cache.version = 2;
   memoryCache = cache;
   await writeBlob(CACHE_PATH, cache);
 }
@@ -246,6 +275,7 @@ function aggregateSites(stationCodes, devices, cache) {
   for (const typeId of DEVICE_TYPES) {
     const record = cache.realtime?.[typeId];
     if (!record?.rows?.length) continue;
+
     for (const row of record.rows) {
       const device = byId.get(String(row?.devId ?? row?.id ?? ""));
       if (!device || !sites[device.stationCode]) continue;
@@ -256,16 +286,19 @@ function aggregateSites(stationCodes, devices, cache) {
         const value = metricValue(values, ["active_power", "real_power", "pv_power"]);
         if (value !== null) pvTotals.set(device.stationCode, (pvTotals.get(device.stationCode) || 0) + value);
       }
+
       if (typeId === 17) {
-        const value = metricValue(values, ["active_power", "grid_power", "on_grid_power"]);
-        if (value !== null) gridTotals.set(device.stationCode, (gridTotals.get(device.stationCode) || 0) + value / 1000);
+        const value = scaleMeterPower(metricValue(values, ["active_power", "grid_power", "on_grid_power"]));
+        if (value !== null) gridTotals.set(device.stationCode, (gridTotals.get(device.stationCode) || 0) + value);
       }
+
       if (typeId === 41) {
         const soc = metricValue(values, ["battery_soc", "soc", "battery_state_of_capacity"]);
         if (soc !== null && soc >= 0 && soc <= 100) {
           if (!socValues.has(device.stationCode)) socValues.set(device.stationCode, []);
           socValues.get(device.stationCode).push(soc);
         }
+
         const signed = metricValue(values, ["ch_discharge_power", "charge_discharge_power"]);
         if (signed !== null) {
           const kw = signed / 1000;
@@ -279,23 +312,27 @@ function aggregateSites(stationCodes, devices, cache) {
   for (const code of stationCodes) {
     const site = sites[code];
     if (pvTotals.has(code)) site.pvKw = pvTotals.get(code);
+
     if (gridTotals.has(code)) {
       const net = gridTotals.get(code);
       site.importKw = Math.max(-net, 0);
       site.exportKw = Math.max(net, 0);
     }
+
     if (socValues.has(code)) {
       const values = socValues.get(code);
       site.soc = values.reduce((a, b) => a + b, 0) / values.length;
     }
     if (chargeTotals.has(code)) site.chargeKw = chargeTotals.get(code);
     if (dischargeTotals.has(code)) site.dischargeKw = dischargeTotals.get(code);
+
     site.sampleAt = sampleTimes.get(code) ? new Date(sampleTimes.get(code)).toISOString() : null;
 
     if (site.pvKw !== null && site.importKw !== null && site.exportKw !== null) {
-      const charge = site.chargeKw || 0;
-      const discharge = site.dischargeKw || 0;
-      site.loadKw = Math.max(0, site.pvKw + site.importKw + discharge - site.exportKw - charge);
+      site.loadKw = Math.max(
+        0,
+        site.pvKw + site.importKw + (site.dischargeKw || 0) - site.exportKw - (site.chargeKw || 0)
+      );
     }
   }
 
@@ -312,21 +349,29 @@ module.exports = async function handler(req, res) {
 
   const cache = await loadCache();
   const coverage = [];
-  let session = null;
+  const sessionRef = { current: null };
 
   try {
-    session = await login();
+    sessionRef.current = await login();
   } catch (error) {
     coverage.push({ path: "/login", ok: false, failCode: error.failCode ?? null, error: String(error.message || error) });
   }
 
-  if (session) {
+  if (sessionRef.current) {
     const inventoryAge = Date.now() - Number(cache.inventoryAt || 0);
     if (!cache.devices?.length || inventoryAge > INVENTORY_TTL_MS) {
-      const devList = await safeCall(session, "/getDevList", { stationCodes: stationCodes.join(",") });
-      coverage.push({ path: "/getDevList", ok: devList.ok, failCode: devList.failCode ?? null, error: devList.ok ? "" : devList.error });
+      const devList = await safeCall(sessionRef, "/getDevList", { stationCodes: stationCodes.join(",") });
+      coverage.push({
+        path: "/getDevList",
+        ok: devList.ok,
+        failCode: devList.failCode ?? null,
+        relogged: Boolean(devList.relogged),
+        error: devList.ok ? "" : devList.error,
+      });
       if (devList.ok) {
-        cache.devices = asArray(devList.payload?.data, devList.payload?.data?.list).map(deviceShell).filter((device) => device.id && device.stationCode);
+        cache.devices = asArray(devList.payload?.data, devList.payload?.data?.list)
+          .map(deviceShell)
+          .filter((device) => device.id && device.stationCode);
         cache.inventoryAt = Date.now();
       }
     }
@@ -336,10 +381,16 @@ module.exports = async function handler(req, res) {
     if (typeId) {
       const ids = devices.filter((device) => device.typeId === typeId).map((device) => device.id).slice(0, 100);
       if (ids.length) {
-        const realtime = await safeCall(session, "/getDevRealKpi", { devIds: ids.join(","), devTypeId: typeId });
-        coverage.push({ path: "/getDevRealKpi", devTypeId: typeId, ok: realtime.ok, failCode: realtime.failCode ?? null, error: realtime.ok ? "" : realtime.error });
+        const realtime = await safeCall(sessionRef, "/getDevRealKpi", { devIds: ids.join(","), devTypeId: typeId });
+        coverage.push({
+          path: "/getDevRealKpi",
+          devTypeId: typeId,
+          ok: realtime.ok,
+          failCode: realtime.failCode ?? null,
+          relogged: Boolean(realtime.relogged),
+          error: realtime.ok ? "" : realtime.error,
+        });
         if (realtime.ok) {
-          cache.realtime = cache.realtime || {};
           cache.realtime[typeId] = {
             at: Date.now(),
             rows: asArray(realtime.payload?.data, realtime.payload?.data?.list),
@@ -347,17 +398,20 @@ module.exports = async function handler(req, res) {
         }
       }
     }
+
     await saveCache(cache);
   }
 
   const devices = (cache.devices || []).filter((device) => stationCodes.includes(device.stationCode));
   const sites = aggregateSites(stationCodes, devices, cache);
-  const timestamps = Object.values(cache.realtime || {}).map((item) => Number(item?.at || 0)).filter(Boolean);
+  const timestamps = Object.values(cache.realtime || {})
+    .map((item) => Number(item?.at || 0))
+    .filter(Boolean);
   const newest = timestamps.length ? Math.max(...timestamps) : 0;
 
   return res.status(200).json({
     configured: Boolean(process.env.FUSIONSOLAR_USERNAME && process.env.FUSIONSOLAR_SYSTEM_CODE),
-    connected: Boolean(session),
+    connected: Boolean(sessionRef.current),
     provider: "FusionSolar",
     connectorVersion: VERSION,
     fetchedAt: new Date().toISOString(),
