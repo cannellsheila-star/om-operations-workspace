@@ -2,7 +2,10 @@
   if (window.__fusionLiveOverviewInstalled) return;
   window.__fusionLiveOverviewInstalled = true;
 
-  const INTERVAL_MS = 75 * 1000;
+  // Huawei rate-limits getDevRealKpi by device type. Keep one shared snapshot
+  // refresh comfortably outside the one-minute concurrency window and let the
+  // server rotate through PV, meter and ESS data without competing pollers.
+  const INTERVAL_MS = 110 * 1000;
   const num = (value) => {
     if (value === null || value === undefined || value === "") return null;
     const parsed = Number(value);
