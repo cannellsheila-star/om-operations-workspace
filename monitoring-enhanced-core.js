@@ -182,11 +182,6 @@
     return refreshPromise;
   };
 
-  function connectionText() {
-    if (monitoringState.status === "loading") return "Refreshing Deye Cloud telemetry…";
-    if (monitoringState.data?.configured && monitoringState.data?.systems?.length) return `Live Deye feed updated ${new Date(monitoringState.data.fetchedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}. Automatic monitoring tickets are active.`;
-    return monitoringState.message || "Waiting for the monitoring feed.";
-  }
 
   renderMonitoring = function enhancedRenderMonitoring() {
     state.view = "monitoring";
@@ -199,7 +194,6 @@
     const deviceOffline = live.reduce((s, r) => s + Number(r.telemetry.deviceSummary?.offline || 0), 0);
     const alarms = live.reduce((s, r) => s + Number(r.telemetry.activeAlerts?.length || 0), 0);
     appView.innerHTML = `
-      <p class="subtitle"><span class="status-dot ${monitoringState.data?.configured ? "is-live" : ""}"></span>${esc(connectionText())}</p>
       <div class="monitoring-stat-grid monitoring-stat-grid-expanded">
         <article class="stat-card"><span>PV power now</span><strong>${live.length ? fmt(totalPower, "kW") : "—"}</strong><span>${live.length} Deye station${live.length === 1 ? "" : "s"} reporting</span></article>
         <article class="stat-card"><span>Generation today</span><strong>${live.length ? fmt(totalEnergy, "kWh") : "—"}</strong><span>Latest daily energy</span></article>
