@@ -81,7 +81,7 @@
   function loadPortfolioMonitoringUi() {
     if (document.querySelector('script[data-portfolio-monitoring-ui]')) return;
     const script = document.createElement('script');
-    script.src = 'portfolio-monitoring-ui.js?v=20260916-2';
+    script.src = 'portfolio-monitoring-ui.js?v=20260916-3';
     script.dataset.portfolioMonitoringUi = '1';
     script.async = false;
     document.body.appendChild(script);
