@@ -2,27 +2,27 @@ name: Repository text cleanup
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   cleanup:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Normalize text
+      - name: Normalize repository text
+        shell: bash
         run: |
-          python - <<'PY'
+          python3 <<'PY'
           from pathlib import Path
 
           allowed = {'.js', '.css', '.html', '.md', '.json', '.txt', '.yml', '.yaml'}
           skip_parts = {'.git', 'node_modules'}
-
           replacements = {
               chr(0x2014): '-',
               chr(0x2013): '-',
@@ -51,8 +51,7 @@ jobs:
               if updated != text:
                   path.write_text(updated, encoding='utf-8')
 
-          readme = Path('README.md')
-          readme.write_text('''**Blue Energy Africa O&M Workspace**
+          Path('README.md').write_text('''**Blue Energy Africa O&M Workspace**
 
 Internal operations workspace for Blue Energy Africa.
 
@@ -79,7 +78,8 @@ Workspace records and uploaded bills are stored in Vercel Blob.
 Hosted on Vercel from the `main` branch.
 ''', encoding='utf-8')
           PY
-      - name: Commit changes
+      - name: Save normalized text
+        shell: bash
         run: |
           if git diff --quiet; then
             exit 0
