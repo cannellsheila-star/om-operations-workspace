@@ -158,7 +158,8 @@
           if (rangeResponse.ok && latest) {
             detail.aggregate.powerKw = num(latest.pvKw);
             detail.aggregate.pvPowerKw = num(latest.pvKw);
-            detail.aggregate.gridPowerKw = num(latest.gridKw);
+            const gridPower = num(latest.gridKw);
+            detail.aggregate.gridPowerKw = gridPower !== null && Math.abs(gridPower) <= 10000 ? gridPower : null;
             detail.aggregate.consumptionPowerKw = num(latest.loadKw);
             detail.aggregate.loadPowerKw = num(latest.loadKw);
             if (typeof state !== "undefined" && state.view === "monitoring") renderPortfolioLive();
@@ -218,7 +219,7 @@
     const agg = detail?.aggregate || {};
     const pv = firstNum(telemetry?.powerKw, telemetry?.pvPowerKw, agg.powerKw, agg.pvPowerKw);
     const load = firstNum(telemetry?.consumptionPowerKw, telemetry?.loadPowerKw, agg.consumptionPowerKw, agg.loadPowerKw);
-    const gridNet = firstNum(telemetry?.gridPowerKw, agg.gridPowerKw);
+    const gridNet = isFusionSystem(system) && detail ? firstNum(agg.gridPowerKw) : firstNum(telemetry?.gridPowerKw, agg.gridPowerKw);
     const gridImport = firstNum(telemetry?.purchasePowerKw, telemetry?.gridImportPowerKw, agg.purchasePowerKw, agg.gridImportPowerKw);
     const gridExport = firstNum(telemetry?.gridExportPowerKw, agg.gridExportPowerKw);
     const soc = firstNum(telemetry?.batterySoc, agg.batterySoc);
