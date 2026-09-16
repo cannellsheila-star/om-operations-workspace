@@ -2,16 +2,20 @@
   if (window.__fusionLiveOverviewInstalled) return;
   window.__fusionLiveOverviewInstalled = true;
 
-  // Huawei rate-limits getDevRealKpi by device type. Keep one shared snapshot
-  // refresh comfortably outside the one-minute concurrency window and let the
-  // server rotate through PV, meter and ESS data without competing pollers.
+  // One shared poller only. Huawei rate-limits realtime device data, so the
+  // snapshot endpoint rotates device types and persists the last good values.
   const INTERVAL_MS = 110 * 1000;
+
   const num = (value) => {
     if (value === null || value === undefined || value === "") return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   };
-  const norm = (value) => String(value || "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+  const norm = (value) => String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
   function workspaceSystems() {
     if (typeof systems !== "undefined" && Array.isArray(systems)) return systems;
@@ -22,10 +26,13 @@
     return window.fusionSolarMonitoring || null;
   }
 
-  function mappedCodes(system, portfolio) {
+  function mappedPlants(system, portfolio) {
     const wanted = new Set((system.fusionSolarPlants || []).map(norm));
-    return (portfolio?.systems || [])
-      .filter((plant) => wanted.has(norm(plant.name)))
+    return (portfolio?.systems || []).filter((plant) => wanted.has(norm(plant.name)));
+  }
+
+  function mappedCodes(system, portfolio) {
+    return mappedPlants(system, portfolio)
       .map((plant) => String(plant.providerStationId || plant.stationCode || ""))
       .filter(Boolean);
   }
@@ -40,25 +47,63 @@
     return known.length ? known.reduce((total, value) => total + value, 0) / known.length : null;
   }
 
+  function portfolioPv(system, portfolio) {
+    const plants = mappedPlants(system, portfolio);
+    const values = plants.map((plant) => {
+      const direct = num(plant.powerKw);
+      if (direct !== null) return direct;
+      return num(plant.pvPowerKw);
+    });
+    return sumKnown(values);
+  }
+
+  function ensureDetail(system) {
+    const fusion = store();
+    if (!fusion) return null;
+    if (!(fusion.detailCache instanceof Map)) fusion.detailCache = new Map();
+    const existing = fusion.detailCache.get(system.id) || { plants: [], bessDevices: [], aggregate: {} };
+    if (!existing.aggregate) existing.aggregate = {};
+    fusion.detailCache.set(system.id, existing);
+    return existing;
+  }
+
+  function seedPortfolioPower(system, portfolio) {
+    const detail = ensureDetail(system);
+    if (!detail) return;
+    const pv = portfolioPv(system, portfolio);
+    if (pv === null) return;
+    detail.aggregate.powerKw = pv;
+    detail.aggregate.pvPowerKw = pv;
+    detail.fetchedAt = portfolio?.fetchedAt || detail.fetchedAt || null;
+  }
+
   function mergeSystem(system, payload, portfolio) {
     const fusion = store();
     if (!fusion) return;
-    if (!(fusion.detailCache instanceof Map)) fusion.detailCache = new Map();
 
     const codes = mappedCodes(system, portfolio);
     const rows = codes.map((code) => payload.sites?.[code]).filter(Boolean);
-    if (!rows.length) return;
+    const existing = ensureDetail(system);
+    if (!existing) return;
+    const aggregate = existing.aggregate;
 
-    const existing = fusion.detailCache.get(system.id) || { plants: [], bessDevices: [], aggregate: {} };
-    const aggregate = existing.aggregate || {};
-    const pv = sumKnown(rows.map((row) => row.pvKw));
-    const load = sumKnown(rows.map((row) => row.loadKw));
+    // PV can come from either the snapshot or the already-loaded verified
+    // station portfolio. This prevents the overview from showing a blank PV
+    // while the device-level realtime cache is rotating through device types.
+    const snapshotPv = sumKnown(rows.map((row) => row.pvKw));
+    const pv = snapshotPv !== null ? snapshotPv : portfolioPv(system, portfolio);
     const gridImport = sumKnown(rows.map((row) => row.importKw));
     const gridExport = sumKnown(rows.map((row) => row.exportKw));
     const soc = averageKnown(rows.map((row) => row.soc));
     const charge = sumKnown(rows.map((row) => row.chargeKw));
     const discharge = sumKnown(rows.map((row) => row.dischargeKw));
-    const sampleTimes = rows.map((row) => row.sampleAt).filter(Boolean).map((value) => new Date(value).getTime()).filter(Number.isFinite);
+    let load = sumKnown(rows.map((row) => row.loadKw));
+
+    // Once grid and BESS power are known, calculate demand from the power
+    // balance if Huawei did not return a direct load sample.
+    if (load === null && pv !== null && gridImport !== null && gridExport !== null) {
+      load = Math.max(0, pv + gridImport + (discharge || 0) - gridExport - (charge || 0));
+    }
 
     if (pv !== null) {
       aggregate.powerKw = pv;
@@ -70,16 +115,34 @@
     }
     if (gridImport !== null) aggregate.gridImportPowerKw = gridImport;
     if (gridExport !== null) aggregate.gridExportPowerKw = gridExport;
-    if (gridImport !== null || gridExport !== null) aggregate.gridPowerKw = (gridExport || 0) - (gridImport || 0);
+    if (gridImport !== null || gridExport !== null) {
+      aggregate.gridPowerKw = (gridExport || 0) - (gridImport || 0);
+    }
     if (soc !== null) aggregate.batterySoc = soc;
     if (charge !== null) aggregate.chargePowerKw = charge;
     if (discharge !== null) aggregate.dischargePowerKw = discharge;
-    if (charge !== null || discharge !== null) aggregate.batteryPowerKw = (charge || 0) - (discharge || 0);
+    if (charge !== null || discharge !== null) {
+      aggregate.batteryPowerKw = (charge || 0) - (discharge || 0);
+    }
+
+    const sampleTimes = rows
+      .map((row) => row.sampleAt)
+      .filter(Boolean)
+      .map((value) => new Date(value).getTime())
+      .filter(Number.isFinite);
 
     existing.aggregate = aggregate;
-    existing.liveSampleAt = sampleTimes.length ? new Date(Math.max(...sampleTimes)).toISOString() : existing.liveSampleAt || null;
-    existing.fetchedAt = existing.liveSampleAt || payload.fetchedAt || existing.fetchedAt || null;
+    existing.liveSampleAt = sampleTimes.length
+      ? new Date(Math.max(...sampleTimes)).toISOString()
+      : existing.liveSampleAt || null;
+    existing.fetchedAt = existing.liveSampleAt || payload.fetchedAt || portfolio?.fetchedAt || existing.fetchedAt || null;
     fusion.detailCache.set(system.id, existing);
+  }
+
+  function renderIfMonitoring() {
+    if (typeof renderMonitoring === "function" && typeof state !== "undefined" && state.view === "monitoring") {
+      renderMonitoring();
+    }
   }
 
   let running = false;
@@ -91,22 +154,30 @@
     const portfolio = fusion?.data;
     if (!portfolio?.systems?.length) return;
 
-    const fusionSystems = workspaceSystems().filter((system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length);
+    const fusionSystems = workspaceSystems().filter(
+      (system) => Array.isArray(system.fusionSolarPlants) && system.fusionSolarPlants.length
+    );
+
+    // Show any verified station-level PV immediately, before waiting for the
+    // device snapshot rotation.
+    fusionSystems.forEach((system) => seedPortfolioPower(system, portfolio));
+    renderIfMonitoring();
+
     const codes = [...new Set(fusionSystems.flatMap((system) => mappedCodes(system, portfolio)))];
     if (!codes.length) return;
 
     running = true;
     try {
-      const response = await fetch(`/api/fusionsolar-live-snapshot?stationCodes=${encodeURIComponent(codes.join(","))}`, {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
+      const response = await fetch(
+        `/api/fusionsolar-live-snapshot?stationCodes=${encodeURIComponent(codes.join(","))}`,
+        { cache: "no-store", headers: { Accept: "application/json" } }
+      );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) return;
 
       fusionSystems.forEach((system) => mergeSystem(system, payload, portfolio));
       window.__fusionLiveSnapshot = payload;
-      if (typeof renderMonitoring === "function" && typeof state !== "undefined" && state.view === "monitoring") renderMonitoring();
+      renderIfMonitoring();
     } finally {
       running = false;
     }
@@ -117,5 +188,5 @@
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refresh();
   });
-  setTimeout(refresh, 2500);
+  setTimeout(refresh, 1800);
 })();
