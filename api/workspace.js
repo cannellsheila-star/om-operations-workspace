@@ -1,6 +1,6 @@
 const SNAPSHOT_PATH = "om-workspace/workspace.json";
 
-const number = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const number = (value) => value === null || value === undefined || String(value).trim() === "" ? null : (Number.isFinite(Number(value)) ? Number(value) : null);
 
 function bodyObject(req) {
   if (!req.body) return {};
