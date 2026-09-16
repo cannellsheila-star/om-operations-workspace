@@ -202,7 +202,7 @@
   }
   async function calculateSavings(rows) {
     try {
-      const data=await fetchJson("/api/savings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(savingsRequest(rows))});
+      const data=await fetchJson("/api/workspace?action=savings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(savingsRequest(rows))});
       const results=new Map();
       (Array.isArray(data.results)?data.results:[]).forEach((result)=>results.set(String(result.systemId||""),result));
       return results;
