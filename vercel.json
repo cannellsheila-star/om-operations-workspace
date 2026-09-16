@@ -15,6 +15,9 @@
     },
     "api/fusionsolar-unified-native.js": {
       "regions": ["sin1"]
+    },
+    "api/fusionsolar-live-snapshot.js": {
+      "regions": ["sin1"]
     }
   },
   "headers": [
