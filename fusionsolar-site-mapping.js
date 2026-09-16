@@ -16,6 +16,28 @@
 
   let changed = false;
 
+  // Treat this table as the authoritative owner of every FusionSolar plant.
+  // This also cleans up mappings that were persisted in localStorage by older
+  // versions of the workspace. A Huawei plant must never be attached to more
+  // than one workspace system.
+  const plantOwner = new Map();
+  Object.entries(fusionMappings).forEach(([systemId, plantNames]) => {
+    plantNames.forEach((plantName) => plantOwner.set(normalise(plantName), systemId));
+  });
+
+  systems.forEach((system) => {
+    if (!Array.isArray(system.fusionSolarPlants) || !system.fusionSolarPlants.length) return;
+    const cleaned = system.fusionSolarPlants.filter((plantName) => {
+      const owner = plantOwner.get(normalise(plantName));
+      return !owner || owner === system.id;
+    });
+    const same = cleaned.length === system.fusionSolarPlants.length && cleaned.every((name, index) => normalise(name) === normalise(system.fusionSolarPlants[index]));
+    if (!same) {
+      system.fusionSolarPlants = cleaned;
+      changed = true;
+    }
+  });
+
   // SYS-006 is the original 2.23 MW / 4 MWh Meyerton Mall asset and is Riverstone.
   // A later remediation import created SYS-020 as a duplicate. Merge everything back
   // into the original asset so Monitoring, tickets and maintenance all use one site.
