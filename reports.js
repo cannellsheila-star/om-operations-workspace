@@ -15,7 +15,7 @@
   let fusionListPromise = null;
 
   const esc = (v) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");
-  const num = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
+  const num = (v) => v === null || v === undefined || String(v).trim() === "" ? null : (Number.isFinite(Number(v)) ? Number(v) : null);
   const norm = (v) => String(v || "").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
   const fmt = (v, unit="", digits=1) => { const n=num(v); return n===null ? "-" : `${n.toLocaleString("en-ZA",{maximumFractionDigits:digits})}${unit?` ${unit}`:""}`; };
   const money = (v) => { const n=num(v); return n===null ? "-" : n.toLocaleString("en-ZA",{style:"currency",currency:"ZAR",minimumFractionDigits:2,maximumFractionDigits:2}); };
