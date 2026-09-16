@@ -81,8 +81,17 @@
   function loadPortfolioMonitoringUi() {
     if (document.querySelector('script[data-portfolio-monitoring-ui]')) return;
     const script = document.createElement('script');
-    script.src = 'portfolio-monitoring-ui-fusion-live.js?v=2';
+    script.src = 'portfolio-monitoring-ui.js?v=20260916-4';
     script.dataset.portfolioMonitoringUi = '1';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
+  function loadFusionLiveOverview() {
+    if (document.querySelector('script[data-fusion-live-overview]')) return;
+    const script = document.createElement('script');
+    script.src = 'fusion-live-overview.js?v=20260916-1';
+    script.dataset.fusionLiveOverview = '1';
     script.async = false;
     document.body.appendChild(script);
   }
@@ -108,6 +117,7 @@
 
   function loadMonitoringExtensions() {
     loadPortfolioMonitoringUi();
+    loadFusionLiveOverview();
     loadSiteTicketManager();
     startAutomaticMonitoringRefresh();
   }
