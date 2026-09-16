@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "standard-monitoring-v2-20260916";
+  const VERSION = "standard-monitoring-v2-20260916-station-fallback";
   const baseRenderMonitoring = window.renderMonitoring || renderMonitoring;
   const baseOnAction = window.onAction || onAction;
   const nativeFetch = window.fetch.bind(window);
@@ -337,32 +337,42 @@
     stateObj.detail=detail;
     const codes=selectedFusionCodes(system,stateObj,detail);
     const selectedDevices=(detail.devices||[]).filter((d)=>codes.includes(String(d.stationCode||"")));
-    const bessIds=(detail.bessDevices||[]).filter((d)=>codes.includes(String(d.stationCode||""))).map((d)=>String(d.id)).filter(Boolean);
     const from=stateObj.from.getTime(), to=stateObj.to.getTime();
     if (stateObj.resolution === "5m" && to-from > 3*86400000) throw new Error("FusionSolar 5-minute history is limited to 3 days. Choose Hourly or Daily for a longer range.");
-    const primary=await fetchJson(`/api/fusionsolar-range?stationCodes=${encodeURIComponent(codes.join(","))}&bessIds=${encodeURIComponent(bessIds.join(","))}&from=${from}&to=${to}`);
-    let power;
-    if (stateObj.resolution === "5m") {
-      const inverterIds=selectedDevices.filter((d)=>Number(d.typeId)===1).map((d)=>String(d.id)).filter(Boolean);
-      const meterIds=selectedDevices.filter((d)=>Number(d.typeId)===17).map((d)=>String(d.id)).filter(Boolean);
-      const inverterRows=inverterIds.length?await fetchFusionDeviceHistory(inverterIds,1,from,to):[];
-      const meterRows=meterIds.length?await fetchFusionDeviceHistory(meterIds,17,from,to):[];
-      power=fusionFiveMinutePower(inverterRows,meterRows,primary.bess||[]);
-    } else {
-      const station=fusionStationRows(primary,stateObj.resolution);
-      power=aggregatePowerRows(station,stateObj.resolution);
+
+    // Station history is the reliable, shared API path. Do not make optional
+    // inverter, meter or BESS-history requests as a side effect of opening a site:
+    // Huawei rate-limits those interfaces independently.
+    const primary=await fetchJson(`/api/fusionsolar-range?stationCodes=${encodeURIComponent(codes.join(","))}&from=${from}&to=${to}`);
+    const stationResolution=stateObj.resolution === "1d" ? "1d" : "1h";
+    const station=fusionStationRows(primary,stationResolution);
+    const power=aggregatePowerRows(station,stationResolution);
+    let energy=energyFromPower(power,stationResolution);
+    let energyResolution=stationResolution === "1d" ? "Daily station" : "Hourly station";
+    if (primary.daily?.length) {
+      const daily=primary.daily.map((r)=>({
+        time:num(r.time),
+        pvKwh:num(r.generationKwh),
+        loadKwh:num(r.consumptionKwh),
+        importKwh:null,
+        exportKwh:num(r.gridKwh)
+      })).filter((r)=>r.time!==null);
+      if (daily.length) { energy=daily; energyResolution="Daily station"; }
     }
-    const energy=energyFromPower(power,stateObj.resolution);
-    if (stateObj.resolution === "1d" && primary.daily?.length) {
-      primary.daily.forEach((r)=>{
-        const match=energy.find((e)=>bucketKey(e.time,"1d")===bucketKey(num(r.time)||0,"1d"));
-        if (!match) return;
-        if(num(r.generationKwh)!==null)match.pvKwh=num(r.generationKwh);
-        if(num(r.consumptionKwh)!==null)match.loadKwh=num(r.consumptionKwh);
-        if(num(r.gridKwh)!==null)match.exportKwh=num(r.gridKwh);
-      });
-    }
-    return {provider:"FusionSolar",power,energy,bess:power.map((r)=>({time:r.time,soc:r.soc,chargeKw:r.chargeKw,dischargeKw:r.dischargeKw})),devices:selectedDevices,note:"FusionSolar data normalized from station KPIs, inverter history, grid meters and ESS type 41 history."};
+    const bess=(primary.bess||[]).map((r)=>({time:num(r.time),soc:num(r.soc),chargeKw:num(r.chargePowerKw),dischargeKw:num(r.dischargePowerKw)})).filter((r)=>r.time!==null&&(r.soc!==null||r.chargeKw!==null||r.dischargeKw!==null));
+    const fallback=stateObj.resolution === "5m";
+    return {
+      provider:"FusionSolar",
+      power,
+      energy,
+      bess,
+      devices:selectedDevices,
+      powerResolution:fallback?"Hourly station":(stationResolution === "1d" ? "Daily station" : "Hourly station"),
+      energyResolution,
+      note:fallback
+        ? "Live FusionSolar station data is available. Huawei's optional device-level five-minute history is temporarily limited, so Power is shown from hourly station values and Energy from daily station totals."
+        : "FusionSolar data is shown from the shared station history API. Optional device-level history is loaded separately to protect Huawei API limits."
+    };
   }
 
   async function loadRange(system, force=false) {
@@ -452,7 +462,9 @@
     pageHeader("Monitoring","O&M / SITE MONITORING"); backButton.hidden=false; primaryAction.hidden=true;
     const resLabel=st.resolution==="5m"?"5-minute":st.resolution==="1h"?"Hourly":"Daily";
     const data=st.data;
-    appView.innerHTML=`<div class="smv2-shell" data-standard-monitoring="${VERSION}"><div class="smv2-site-head"><div><p class="eyebrow">${esc(system.id)} · ${esc(live.provider||providerLabel(system,exactTelemetry(system)))}</p><h2>${esc(system.name)}</h2><div class="smv2-head-meta"><span><i class="smv2-dot ${statusDot(live.status||system.status)}"></i>${esc(live.status||system.status||"Unknown")}</span><span class="smv2-provider">${esc(live.provider||providerLabel(system,exactTelemetry(system)))}</span><span class="smv2-subtle">Last signal ${esc(dateTime(live.last))}</span></div></div><button class="button button-muted" type="button" data-smv2-refresh>Refresh live data</button></div>${siteKpis(system,st)}<section class="surface"><div class="smv2-controls"><div class="smv2-field"><label>From</label><input id="smv2-from" type="datetime-local" value="${esc(toLocalInput(st.from))}"></div><div class="smv2-field"><label>To</label><input id="smv2-to" type="datetime-local" value="${esc(toLocalInput(st.to))}"></div><div class="smv2-field"><label>Data resolution</label><select id="smv2-resolution"><option value="5m" ${st.resolution==="5m"?"selected":""}>5 minute</option><option value="1h" ${st.resolution==="1h"?"selected":""}>Hourly</option><option value="1d" ${st.resolution==="1d"?"selected":""}>Daily</option></select></div>${plantSelector(system,st)}<div class="smv2-actions"><button class="button button-primary" type="button" data-smv2-apply>Apply</button></div></div><div class="smv2-quick"><button type="button" data-smv2-range="today">Today</button><button type="button" data-smv2-range="24h">Last 24 hours</button><button type="button" data-smv2-range="7d">Last 7 days</button><button type="button" data-smv2-range="30d">Last 30 days</button>${data?`<button type="button" data-smv2-export>Export CSV</button>`:""}</div></section>${st.loading?`<div class="surface smv2-loading">Loading ${esc(resLabel)} monitoring data…</div>`:st.error?`<div class="smv2-error">${esc(st.error)}</div>`:data?`<section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>Energy — kWh</h3><p>PV generation, site load, grid import and grid export · ${esc(resLabel)} buckets.</p></div></div>${barChart(data.energy,[{key:"pvKwh",label:"PV generation"},{key:"loadKwh",label:"Load"},{key:"importKwh",label:"Grid import"},{key:"exportKwh",label:"Grid export"}])}</section><section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>Power — kW</h3><p>PV, load, grid import and grid export · ${esc(resLabel)} profile.</p></div></div>${lineChart(data.power,[{key:"pvKw",label:"PV",unit:"kW"},{key:"loadKw",label:"Load",unit:"kW"},{key:"importKw",label:"Grid import",unit:"kW"},{key:"exportKw",label:"Grid export",unit:"kW"}],{unit:"kW"})}</section><section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>BESS — SOC, charge and discharge</h3><p>SOC on the left axis; charging and discharging power on the right.</p></div></div>${lineChart(data.bess,[{key:"soc",label:"SOC",unit:"%"},{key:"chargeKw",label:"Charge",unit:"kW",right:true},{key:"dischargeKw",label:"Discharge",unit:"kW",right:true}],{unit:"%",min:0,max:100,rightAxis:true,rightUnit:"kW",rmin:0})}</section><div class="smv2-note">${esc(data.note||"")} Load is calculated from the site energy balance only when the API does not return it directly.</div>${deviceSection(st)}`:`<div class="surface smv2-loading">Select a calendar range and resolution to load monitoring data.</div>`}</div>`;
+    const powerResLabel=data?.powerResolution||resLabel;
+    const energyResLabel=data?.energyResolution||resLabel;
+    appView.innerHTML=`<div class="smv2-shell" data-standard-monitoring="${VERSION}"><div class="smv2-site-head"><div><p class="eyebrow">${esc(system.id)} · ${esc(live.provider||providerLabel(system,exactTelemetry(system)))}</p><h2>${esc(system.name)}</h2><div class="smv2-head-meta"><span><i class="smv2-dot ${statusDot(live.status||system.status)}"></i>${esc(live.status||system.status||"Unknown")}</span><span class="smv2-provider">${esc(live.provider||providerLabel(system,exactTelemetry(system)))}</span><span class="smv2-subtle">Last signal ${esc(dateTime(live.last))}</span></div></div><button class="button button-muted" type="button" data-smv2-refresh>Refresh live data</button></div>${siteKpis(system,st)}<section class="surface"><div class="smv2-controls"><div class="smv2-field"><label>From</label><input id="smv2-from" type="datetime-local" value="${esc(toLocalInput(st.from))}"></div><div class="smv2-field"><label>To</label><input id="smv2-to" type="datetime-local" value="${esc(toLocalInput(st.to))}"></div><div class="smv2-field"><label>Data resolution</label><select id="smv2-resolution"><option value="5m" ${st.resolution==="5m"?"selected":""}>5 minute</option><option value="1h" ${st.resolution==="1h"?"selected":""}>Hourly</option><option value="1d" ${st.resolution==="1d"?"selected":""}>Daily</option></select></div>${plantSelector(system,st)}<div class="smv2-actions"><button class="button button-primary" type="button" data-smv2-apply>Apply</button></div></div><div class="smv2-quick"><button type="button" data-smv2-range="today">Today</button><button type="button" data-smv2-range="24h">Last 24 hours</button><button type="button" data-smv2-range="7d">Last 7 days</button><button type="button" data-smv2-range="30d">Last 30 days</button>${data?`<button type="button" data-smv2-export>Export CSV</button>`:""}</div></section>${st.loading?`<div class="surface smv2-loading">Loading ${esc(resLabel)} monitoring data…</div>`:st.error?`<div class="smv2-error">${esc(st.error)}</div>`:data?`<section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>Energy — kWh</h3><p>PV generation, site load, grid import and grid export · ${esc(energyResLabel)} buckets.</p></div></div>${barChart(data.energy,[{key:"pvKwh",label:"PV generation"},{key:"loadKwh",label:"Load"},{key:"importKwh",label:"Grid import"},{key:"exportKwh",label:"Grid export"}])}</section><section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>Power — kW</h3><p>PV, load, grid import and grid export · ${esc(powerResLabel)} profile.</p></div></div>${lineChart(data.power,[{key:"pvKw",label:"PV",unit:"kW"},{key:"loadKw",label:"Load",unit:"kW"},{key:"importKw",label:"Grid import",unit:"kW"},{key:"exportKw",label:"Grid export",unit:"kW"}],{unit:"kW"})}</section><section class="surface smv2-chart-card"><div class="smv2-chart-head"><div><h3>BESS — SOC, charge and discharge</h3><p>SOC on the left axis; charging and discharging power on the right.</p></div></div>${lineChart(data.bess,[{key:"soc",label:"SOC",unit:"%"},{key:"chargeKw",label:"Charge",unit:"kW",right:true},{key:"dischargeKw",label:"Discharge",unit:"kW",right:true}],{unit:"%",min:0,max:100,rightAxis:true,rightUnit:"kW",rmin:0})}</section><div class="smv2-note">${esc(data.note||"")} Load is calculated from the site energy balance only when the API does not return it directly.</div>${deviceSection(st)}`:`<div class="surface smv2-loading">Select a calendar range and resolution to load monitoring data.</div>`}</div>`;
     attachTooltips(appView);
   }
 
