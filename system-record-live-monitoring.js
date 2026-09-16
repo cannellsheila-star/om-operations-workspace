@@ -169,21 +169,23 @@
     return result;
   };
 
+  function openSystemMonitoring(id) {
+    const system = getSystem(id);
+    if (!system) return;
+    state.monitoringSystem = id;
+    if (typeof onAction === "function") onAction("open-monitoring-site", id);
+  }
+
   document.addEventListener("click", (event) => {
     const card = event.target.closest?.("[data-system-live-monitoring]");
     if (!card) return;
-    const id = card.dataset.systemLiveMonitoring;
-    const system = getSystem(id);
-    if (!system) return;
-    const data = snapshot(system);
-    if (data.linked && typeof onAction === "function") onAction("open-monitoring-site", id);
-    else if (typeof renderMonitoring === "function") renderMonitoring();
+    openSystemMonitoring(card.dataset.systemLiveMonitoring);
   });
 
   document.addEventListener("keydown", (event) => {
     const card = event.target.closest?.("[data-system-live-monitoring]");
     if (!card || !["Enter", " "].includes(event.key)) return;
     event.preventDefault();
-    card.click();
+    openSystemMonitoring(card.dataset.systemLiveMonitoring);
   });
 })();
