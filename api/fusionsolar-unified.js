@@ -3,7 +3,7 @@ const crypto = require("crypto");
 
 const HOST = "sg5.fusionsolar.huawei.com";
 const BASE_PATH = "/thirdData";
-const VERSION = "fusionsolar-unified-v1-20260916";
+const VERSION = "fusionsolar-unified-v2-direct-sg5-20260916";
 const SESSION_PATH = "om-workspace/fusionsolar/session.json";
 const SESSION_TTL_MS = 25 * 60 * 1000;
 const SESSION_RENEW_MARGIN_MS = 60 * 1000;
@@ -26,6 +26,11 @@ const numberOrNull = (value) => {
 };
 const asArray = (...values) => values.find(Array.isArray) || [];
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const DIRECT_IPS = [...new Set([
+  ...clean(process.env.FUSIONSOLAR_SG5_IPS).split(",").map(clean).filter(Boolean),
+  "43.128.81.107",
+  "119.8.160.213",
+])];
 
 function credentialFingerprint() {
   const user = clean(process.env.FUSIONSOLAR_USERNAME);
@@ -68,9 +73,7 @@ async function writeSharedSession(session, expiresAt) {
       allowOverwrite: true,
       contentType: "application/json",
     });
-  } catch {
-    // Local in-memory session still works if shared storage is temporarily unavailable.
-  }
+  } catch {}
 }
 
 async function clearSharedSession() {
@@ -88,16 +91,19 @@ async function clearSharedSession() {
   } catch {}
 }
 
-function requestJson(path, body = {}, headers = {}) {
+function requestJsonAtIp(ip, path, body = {}, headers = {}) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body || {});
     const req = https.request({
-      hostname: HOST,
+      host: ip,
       port: 443,
+      servername: HOST,
       path: BASE_PATH + path,
       method: "POST",
       timeout: 25000,
+      rejectUnauthorized: true,
       headers: {
+        Host: HOST,
         "Content-Type": "application/json",
         Accept: "application/json, */*",
         "Content-Length": Buffer.byteLength(payload),
@@ -114,6 +120,7 @@ function requestJson(path, body = {}, headers = {}) {
         catch {
           const error = new Error(`FusionSolar returned non-JSON data at ${path} (HTTP ${response.statusCode || 0}).`);
           error.httpStatus = Number(response.statusCode || 0);
+          error.reachedHuawei = true;
           reject(error);
           return;
         }
@@ -121,10 +128,11 @@ function requestJson(path, body = {}, headers = {}) {
         if (status < 200 || status >= 300) {
           const error = new Error(json?.message || `FusionSolar HTTP ${status} at ${path}.`);
           error.httpStatus = status;
+          error.reachedHuawei = true;
           reject(error);
           return;
         }
-        resolve({ json, headers: response.headers || {} });
+        resolve({ json, headers: response.headers || {}, transportIp: ip });
       });
     });
     req.on("timeout", () => req.destroy(Object.assign(new Error(`FusionSolar request timed out at ${path}.`), { code: "ETIMEDOUT" })));
@@ -132,6 +140,19 @@ function requestJson(path, body = {}, headers = {}) {
     req.write(payload);
     req.end();
   });
+}
+
+async function requestJson(path, body = {}, headers = {}) {
+  let lastError = null;
+  for (const ip of DIRECT_IPS) {
+    try {
+      return await requestJsonAtIp(ip, path, body, headers);
+    } catch (error) {
+      lastError = error;
+      if (error?.reachedHuawei || error?.httpStatus) throw error;
+    }
+  }
+  throw lastError || new Error(`FusionSolar SG5 could not be reached at ${path}.`);
 }
 
 function validate(result, path) {
@@ -200,8 +221,6 @@ async function login(force = false) {
       await writeSharedSession(cachedSession, cachedSessionExpiresAt);
       return cachedSession;
     } catch (error) {
-      // If another invocation logged in at the same time, Huawei can return 407.
-      // Re-use the shared session that the winning invocation just persisted.
       if (Number(error?.failCode) === 407) {
         const recovered = await recoverSharedSession();
         if (recovered) return recovered;
@@ -555,17 +574,17 @@ module.exports = async function handler(req, res) {
     const from = Number(req.query?.from || 0), to = Number(req.query?.to || 0);
     if (from && to) {
       const data = await range(session, req);
-      return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), ...data });
+      return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), transport: "direct-ip+sni", ...data });
     }
 
     const requestedCodes = clean(req.query?.stationCodes || req.query?.stationCode).split(",").map(clean).filter(Boolean);
     if (requestedCodes.length) {
       const siteDetail = await detail(session, requestedCodes);
-      return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), detail: siteDetail });
+      return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), transport: "direct-ip+sni", detail: siteDetail });
     }
 
     const data = await portfolio(session);
-    return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), message: `${data.systems.length} FusionSolar plant${data.systems.length === 1 ? "" : "s"} returned from SG5.`, ...data });
+    return res.status(200).json({ configured: true, connected: true, provider: "FusionSolar", connectorVersion: VERSION, fetchedAt: new Date().toISOString(), transport: "direct-ip+sni", message: `${data.systems.length} FusionSolar plant${data.systems.length === 1 ? "" : "s"} returned from SG5.`, ...data });
   } catch (error) {
     const status = Number(error?.httpStatus) || 502;
     return res.status(status).json({ configured: true, connected: false, provider: "FusionSolar", connectorVersion: VERSION, failCode: error?.failCode ?? null, message: String(error?.message || "FusionSolar data could not be loaded.") });
