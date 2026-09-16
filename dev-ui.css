@@ -1,4 +1,4 @@
-/* Engineering/workspace visual pass: flatter, denser, less decorative. */
+/* Workspace UI */
 :root {
   --dev-radius: 2px;
   --dev-border: #d7dce3;
@@ -7,7 +7,7 @@
   --dev-hover: #f7f8fa;
 }
 
-/* Remove the soft card / AI-dashboard treatment across the workspace. */
+/* Surfaces */
 .surface,
 .stat-card,
 .report-surface,
@@ -34,7 +34,7 @@
   background-image: none !important;
 }
 
-/* Buttons and form controls should look like application controls, not pills. */
+/* Controls */
 .button,
 button,
 input,
@@ -59,7 +59,7 @@ button:hover {
   transform: none !important;
 }
 
-/* Technical labels use a restrained developer-tool treatment. */
+/* Labels */
 .eyebrow,
 .plive-head,
 .smv2-head,
@@ -77,7 +77,7 @@ button:hover {
   letter-spacing: .035em !important;
 }
 
-/* Portfolio monitoring: square, dense, operational. */
+/* Monitoring */
 .plive-toolbar {
   border: 1px solid var(--dev-border) !important;
   padding: 12px !important;
@@ -154,7 +154,7 @@ button:hover {
   border-radius: 1px !important;
 }
 
-/* Standard site monitoring pages. */
+/* Site monitoring */
 .smv2-table,
 .smv2-controls,
 .smv2-kpi,
@@ -194,7 +194,7 @@ button:hover {
   background: var(--dev-hover) !important;
 }
 
-/* Global data tables/cards: keep borders precise and flat. */
+/* Tables */
 .monitoring-table,
 .table-wrap,
 .system-table,
@@ -208,7 +208,7 @@ button:hover {
   border-color: var(--dev-border) !important;
 }
 
-/* Keep circles only where they carry meaning (status dots / chart markers). */
+/* Status markers */
 .plive-dot,
 .smv2-dot,
 .fusion-dot {
