@@ -6,7 +6,7 @@
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
 
   function installStyles() {
@@ -20,7 +20,10 @@
       .ticket-filter-field input:focus,.ticket-filter-field select:focus{outline:2px solid rgba(23,32,110,.12);border-color:#17206e}
       .ticket-filter-count{margin-left:auto;color:#6d6f85;font-size:12px}
       .ticket-filter-empty{padding:24px 18px;border:1px solid #e5e5ea;background:#fff;color:#6d6f85;text-align:center}
-      @media(max-width:720px){.ticket-filter-toolbar{grid-template-columns:1fr}}
+      .ticket-list-head{display:grid;grid-template-columns:66px minmax(220px,1.5fr) minmax(160px,1fr) minmax(128px,.7fr) 125px;gap:16px;align-items:center;padding:9px 17px;border:1px solid #e5e5ea;border-bottom:0;background:#f6f6f8;color:#6d6f85;font-size:10px;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+      .ticket-list-head + .ticket-list{border-top-left-radius:0;border-top-right-radius:0}
+      .ticket-row{cursor:pointer}
+      @media(max-width:720px){.ticket-filter-toolbar{grid-template-columns:1fr}.ticket-list-head{display:none}}
     `;
     document.head.appendChild(style);
   }
@@ -59,7 +62,7 @@
     if (empty) empty.hidden = shown !== 0;
   }
 
-  renderTickets = function renderTicketsWithSearchAndUrgency() {
+  const ticketRenderer = function renderTicketsWithSearchAndUrgency() {
     state.view = "tickets";
     pageHeader("Tickets", "O&M / OPEN WORK", "New ticket");
     installStyles();
@@ -73,11 +76,11 @@
       const systemName = system?.name || "System needs linking";
       const searchText = `${ticket.id} ${ticket.issue || ""} ${systemName} ${ticket.source || ""}`.toLowerCase();
       const urgency = String(ticket.concern || "").toLowerCase();
-      return `<button class="ticket-row" data-action="open-ticket" data-id="${esc(ticket.id)}" data-ticket-filter-row data-ticket-search="${esc(searchText)}" data-ticket-urgency="${esc(urgency)}">
+      return `<button class="ticket-row" type="button" data-action="open-ticket" data-id="${esc(ticket.id)}" data-ticket-filter-row data-ticket-search="${esc(searchText)}" data-ticket-urgency="${esc(urgency)}">
         <span class="ticket-number">${esc(ticket.id.slice(-4))}</span>
         <span><span class="card-title">${esc(ticket.issue)}</span><span class="card-meta">${esc(ticket.id)} | ${esc(systemName)} | ${esc(ticket.source)}</span></span>
         <span>${tag(ticket.status)}${ticketWorkflow(ticket) ? tag(ticketWorkflow(ticket)) : ""}</span>
-        ${tag(ticket.concern)}
+        <span>${tag(ticket.concern)}</span>
         <span class="card-meta"><strong>${ticket.status === "Completed" ? "Completed" : "Opened"}</strong><br />${esc(ticket.opened)}</span>
       </button>`;
     }).join("");
@@ -90,12 +93,28 @@
         <div class="ticket-filter-field"><label>Urgency</label><select data-ticket-urgency-select><option>All urgencies</option>${urgencies.map((urgency) => `<option ${state.ticketUrgency === urgency ? "selected" : ""}>${esc(urgency)}</option>`).join("")}</select></div>
       </div>
       <div class="section-header"><h2>Tickets</h2><span class="ticket-filter-count" data-ticket-filter-count></span></div>
+      <div class="ticket-list-head" aria-hidden="true"><span>Ticket</span><span>Ticket / Site</span><span>Status</span><span>Urgency</span><span>Opened</span></div>
       <div class="ticket-list">${rows}</div>
       <div class="ticket-filter-empty" data-ticket-filter-empty hidden>No tickets match the selected name and urgency filters.</div>
     `;
 
     applyLocalFilters();
   };
+
+  function assertTicketRenderer() {
+    try { renderTickets = ticketRenderer; } catch {}
+    try { window.renderTickets = ticketRenderer; } catch {}
+  }
+
+  assertTicketRenderer();
+
+  // Other monitoring modules load after this file and have historically
+  // replaced renderTickets. Re-assert the intended ticket UI after the full
+  // synchronous script chain has loaded so filters and labels cannot disappear.
+  window.setTimeout(() => {
+    assertTicketRenderer();
+    if (typeof state !== "undefined" && state.view === "tickets") ticketRenderer();
+  }, 0);
 
   document.addEventListener("input", (event) => {
     if (!event.target.matches("[data-ticket-search-input]")) return;
@@ -108,4 +127,16 @@
     state.ticketUrgency = event.target.value;
     applyLocalFilters();
   });
+
+  // Open ticket-list rows directly in the workroom. This deliberately bypasses
+  // monitoring action wrappers so a later onAction override cannot swallow a
+  // ticket click. Linked-ticket controls elsewhere still use the normal action chain.
+  document.addEventListener("click", (event) => {
+    const row = event.target.closest?.('.ticket-list [data-action="open-ticket"][data-id]');
+    if (!row) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const id = row.dataset.id;
+    if (id && typeof renderTicketWorkroom === "function") renderTicketWorkroom(id);
+  }, true);
 })();
