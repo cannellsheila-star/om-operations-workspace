@@ -104,3 +104,16 @@
     if (typeof state !== "undefined" && state.view === "monitoring") injectPanel();
   }, 1500);
 })();
+
+(() => {
+  function loadPortfolioMonitoringUi() {
+    if (document.querySelector('script[data-portfolio-monitoring-ui]')) return;
+    const script = document.createElement('script');
+    script.src = 'portfolio-monitoring-ui.js?v=20260916-1';
+    script.dataset.portfolioMonitoringUi = '1';
+    script.async = false;
+    document.body.appendChild(script);
+  }
+  if (document.readyState === 'complete') loadPortfolioMonitoringUi();
+  else window.addEventListener('load', loadPortfolioMonitoringUi, { once: true });
+})();
