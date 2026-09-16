@@ -1,21 +1,25 @@
-# Blue Energy Africa O&M Workspace
+**Blue Energy Africa O&M Workspace**
 
-An initial web implementation for managing solar-system records, operational tickets, preventive maintenance, document links and workflow-driven email preparation.
+Internal operations workspace for Blue Energy Africa.
 
-## Included in this first build
+**Functions**
 
-- System register with a full selected-system record
-- Unified tickets area for monitoring, maintenance findings, on-site issues and restorative work
-- Ticket workroom with a dedicated email address, work log, files/photos and quote/PM controls
-- Monthly preventive-maintenance planner and prepared email package
-- Workflow rules that describe the email and record-keeping triggers
-- Deye Cloud monitoring connector
-- Huawei FusionSolar Northbound connector using `FUSIONSOLAR_USERNAME` and `FUSIONSOLAR_SYSTEM_CODE`
+- System register
+- Live monitoring
+- Tickets
+- Preventive maintenance
+- Tariffs and electricity bills
+- Savings, performance and alarm reports
+- Document records
 
-## Deploying
+**Monitoring**
 
-This is a dependency-free static application. Import the repository into Vercel or deploy the project root. No build command is required.
+Deye Cloud and Huawei FusionSolar are connected through their monitoring APIs.
 
-## Next implementation phase
+**Storage**
 
-Connect authentication, a database, a document store, additional monitoring feeds and the transactional email service. The visible workflow and data fields are already structured for those integrations.
+Workspace records and uploaded bills are stored in Vercel Blob.
+
+**Deployment**
+
+Hosted on Vercel from the `main` branch.
